@@ -1,0 +1,24 @@
+cat > ~/myrobot.py << 'EOF'
+import roboticstoolbox as rtb
+from roboticstoolbox import DHRobot, RevoluteDH
+import numpy as np
+
+robot = DHRobot([
+    RevoluteDH(d=0.100,  a=0,      alpha=np.pi/2),   # Joint 1 - waist (base height 100mm)
+    RevoluteDH(d=0,      a=0.185,  alpha=0),           # Joint 2 - shoulder (185mm)
+    RevoluteDH(d=0,      a=0.120,  alpha=0),           # Joint 3 - elbow (120mm)
+    RevoluteDH(d=0,      a=0.115,  alpha=np.pi/2),     # Joint 4 - wrist pitch (115mm)
+    RevoluteDH(d=0.50,  a=0,      alpha=0),           # Joint 5 - wrist roll + end effector (50mm)
+], name='MyRobot')
+
+print(robot)
+
+# Start pose (all zeros) to a reached-out pose
+q_start = np.zeros(5)
+q_end   = np.deg2rad([45, -60, 45, 30, 0])
+qt = rtb.jtraj(q_start, q_end, 50)
+
+robot.plot(qt.q, loop=True, backend='pyplot')
+EOF
+
+python3 ~/myrobot.py
