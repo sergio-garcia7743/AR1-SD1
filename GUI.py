@@ -12,7 +12,8 @@ ready = False
 is_animating = False
 action_cancelled = False
 magnet_on = False
-pump_on = False
+vacuum_on = False
+solenoid_on = False
 
 # ---------------------------------------------------------
 # BRAND COLORS
@@ -102,7 +103,7 @@ class LimitedSlider(tk.Frame):
         work_max=180,
         initial=90,
         command=None,
-        width=360,
+        width=500,
         height=58,
         active_color=TRACK_ACTIVE,
         thumb_outline=THUMB_OUTLINE
@@ -139,15 +140,52 @@ class LimitedSlider(tk.Frame):
         self.val_lbl = tk.Label(header, textvariable=self.val_var, bg=PANEL_BG, fg=ULTRAMARINE, font=SANS_B, anchor="e")
         self.val_lbl.pack(side="right")
 
+        slider_row = tk.Frame(self, bg=PANEL_BG)
+        slider_row.pack(fill="x")
+
+        self.left_btn = tk.Button(
+            slider_row,
+            text="◀",
+            command=self.step_down,
+            bg=WHITE,
+            fg=DARK_GRAY,
+            activebackground="#EAF1F8",
+            activeforeground=DARK_GRAY,
+            relief="raised",
+            bd=1,
+            font=("Segoe UI", 9, "bold"),
+            width=3,
+            cursor="hand2",
+            pady=8
+        )
+        self.left_btn.pack(side="left", padx=(0, 6))
+
         self.cv = tk.Canvas(
-            self,
+            slider_row,
             width=self.width,
             height=self.height,
             bg=PANEL_BG,
             highlightthickness=0,
             bd=0
         )
-        self.cv.pack(fill="x")
+        self.cv.pack(side="left", fill="x", expand=True)
+
+        self.right_btn = tk.Button(
+            slider_row,
+            text="▶",
+            command=self.step_up,
+            bg=WHITE,
+            fg=DARK_GRAY,
+            activebackground="#EAF1F8",
+            activeforeground=DARK_GRAY,
+            relief="raised",
+            bd=1,
+            font=("Segoe UI", 9, "bold"),
+            width=3,
+            cursor="hand2",
+            pady=8
+        )
+        self.right_btn.pack(side="left", padx=(6, 0))
 
         self.cv.bind("<Button-1>", self._click)
         self.cv.bind("<B1-Motion>", self._drag)
@@ -164,7 +202,7 @@ class LimitedSlider(tk.Frame):
         return self.left_pad
 
     def _track_x1(self):
-        return self.width - self.right_pad
+        return max(200, self.cv.winfo_width()) - self.right_pad
 
     def _val_to_x(self, v):
         x0 = self._track_x0()
@@ -182,20 +220,33 @@ class LimitedSlider(tk.Frame):
         v = max(self.work_min, min(self.work_max, v))
         return v
 
+    def _emit_change(self):
+        self.val_var.set(f"{self.value}°")
+        self.draw()
+        if self.command:
+            self.command(str(self.value))
+
     def _set_from_x(self, x):
         new_val = self._x_to_val(x)
         if new_val != self.value:
             self.value = new_val
-            self.val_var.set(f"{self.value}°")
-            self.draw()
-            if self.command:
-                self.command(str(self.value))
+            self._emit_change()
 
     def _click(self, e):
         self._set_from_x(e.x)
 
     def _drag(self, e):
         self._set_from_x(e.x)
+
+    def step_down(self):
+        if self.value > self.work_min:
+            self.value -= 1
+            self._emit_change()
+
+    def step_up(self):
+        if self.value < self.work_max:
+            self.value += 1
+            self._emit_change()
 
     def set(self, v):
         self.value = max(self.work_min, min(self.work_max, int(v)))
@@ -209,13 +260,19 @@ class LimitedSlider(tk.Frame):
         cv = self.cv
         cv.delete("all")
 
-        x0 = self._track_x0()
-        x1 = self._track_x1()
+        current_width = max(200, self.cv.winfo_width())
+        x0 = self.left_pad
+        x1 = current_width - self.right_pad
+
         y0 = self.track_y - self.track_h // 2
         y1 = self.track_y + self.track_h // 2
 
-        wx0 = self._val_to_x(self.work_min)
-        wx1 = self._val_to_x(self.work_max)
+        def val_to_x_dynamic(v):
+            t = (v - self.full_min) / (self.full_max - self.full_min)
+            return x0 + t * (x1 - x0)
+
+        wx0 = val_to_x_dynamic(self.work_min)
+        wx1 = val_to_x_dynamic(self.work_max)
 
         cv.create_rectangle(x0, y0, x1, y1, fill=TRACK_BG, outline=BORDER, width=1)
 
@@ -226,7 +283,7 @@ class LimitedSlider(tk.Frame):
 
         cv.create_rectangle(wx0, y0, wx1, y1, fill=self.active_color, outline="")
 
-        cx = self._val_to_x(90)
+        cx = val_to_x_dynamic(90)
         cv.create_line(cx, y0 - 5, cx, y1 + 5, fill=CENTER_MARKER, width=1)
 
         cv.create_text(x0, 12, text=str(self.full_min), fill=MID_GRAY, font=SANS_S, anchor="w")
@@ -234,7 +291,7 @@ class LimitedSlider(tk.Frame):
         cv.create_text(wx0, y1 + 13, text=str(self.work_min), fill="#8D99A6", font=SANS_S, anchor="center")
         cv.create_text(wx1, y1 + 13, text=str(self.work_max), fill="#8D99A6", font=SANS_S, anchor="center")
 
-        tx = self._val_to_x(self.value)
+        tx = val_to_x_dynamic(self.value)
         ty = self.track_y
         cv.create_oval(
             tx - self.thumb_r, ty - self.thumb_r,
@@ -284,7 +341,7 @@ def smoothstep(t):
 class ArmCanvas:
     def __init__(self, parent):
         self.parent = parent
-        self.W = 620
+        self.W = 430
         self.H = 520
         self.cv = tk.Canvas(
             parent,
@@ -598,11 +655,18 @@ def set_magnet(state: bool):
         serial_send_line("MAGNET:ON" if state else "MAGNET:OFF")
     update_aux_buttons()
 
-def set_pump(state: bool):
-    global pump_on
-    pump_on = state
+def set_vacuum(state: bool):
+    global vacuum_on
+    vacuum_on = state
     if ready:
         serial_send_line("VACUUM:ON" if state else "VACUUM:OFF")
+    update_aux_buttons()
+
+def set_solenoid(state: bool):
+    global solenoid_on
+    solenoid_on = state
+    if ready:
+        serial_send_line("SOLENOID:ON" if state else "SOLENOID:OFF")
     update_aux_buttons()
 
 def update_aux_buttons():
@@ -613,12 +677,19 @@ def update_aux_buttons():
         magnet_on_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
         magnet_off_btn.config(bg=DARK_GRAY, fg=WHITE, activebackground="#444C55")
 
-    if pump_on:
-        pump_on_btn.config(bg=SUCCESS, fg=WHITE, activebackground=SUCCESS_BRIGHT)
-        pump_off_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
+    if vacuum_on:
+        vacuum_on_btn.config(bg=SUCCESS, fg=WHITE, activebackground=SUCCESS_BRIGHT)
+        vacuum_off_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
     else:
-        pump_on_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
-        pump_off_btn.config(bg=DARK_GRAY, fg=WHITE, activebackground="#444C55")
+        vacuum_on_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
+        vacuum_off_btn.config(bg=DARK_GRAY, fg=WHITE, activebackground="#444C55")
+
+    if solenoid_on:
+        solenoid_on_btn.config(bg=SUCCESS, fg=WHITE, activebackground=SUCCESS_BRIGHT)
+        solenoid_off_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
+    else:
+        solenoid_on_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
+        solenoid_off_btn.config(bg=DARK_GRAY, fg=WHITE, activebackground="#444C55")
 
 # ---------------------------------------------------------
 # POSE UPDATE
@@ -945,12 +1016,13 @@ online_label.pack(side="left", pady=10, padx=(6, 0))
 main = tk.Frame(root, bg=BG_APP)
 main.pack(fill="both", expand=True, padx=12, pady=12)
 
-left_col = tk.Frame(main, bg=BG_APP, width=430)
+left_col = tk.Frame(main, bg=BG_APP, width=620)
 left_col.pack(side="left", fill="y")
 left_col.pack_propagate(False)
 
-right_col = tk.Frame(main, bg=BG_APP)
+right_col = tk.Frame(main, bg=BG_APP, width=520)
 right_col.pack(side="right", fill="both", expand=True, padx=(12, 0))
+right_col.pack_propagate(False)
 
 # ---------------------------------------------------------
 # SERIAL CARD
@@ -999,7 +1071,7 @@ tool_slider = LimitedSlider(
     slider_body, "Tool / Gripper",
     full_min=0, full_max=180,
     work_min=WORK_MIN["tool"], work_max=WORK_MAX["tool"],
-    initial=90, command=slider_changed
+    initial=90, command=slider_changed, width=500
 )
 tool_slider.pack(fill="x", pady=4)
 
@@ -1007,7 +1079,7 @@ link3_slider = LimitedSlider(
     slider_body, "Link 3",
     full_min=0, full_max=180,
     work_min=WORK_MIN["link3"], work_max=WORK_MAX["link3"],
-    initial=90, command=slider_changed
+    initial=90, command=slider_changed, width=500
 )
 link3_slider.pack(fill="x", pady=4)
 
@@ -1015,7 +1087,7 @@ link2_slider = LimitedSlider(
     slider_body, "Link 2",
     full_min=0, full_max=180,
     work_min=WORK_MIN["link2"], work_max=WORK_MAX["link2"],
-    initial=90, command=slider_changed
+    initial=90, command=slider_changed, width=500
 )
 link2_slider.pack(fill="x", pady=4)
 
@@ -1023,7 +1095,7 @@ link1_slider = LimitedSlider(
     slider_body, "Link 1",
     full_min=0, full_max=180,
     work_min=WORK_MIN["link1"], work_max=WORK_MAX["link1"],
-    initial=90, command=slider_changed
+    initial=90, command=slider_changed, width=500
 )
 link1_slider.pack(fill="x", pady=4)
 
@@ -1031,7 +1103,7 @@ base_slider = LimitedSlider(
     slider_body, "Base",
     full_min=0, full_max=180,
     work_min=WORK_MIN["base"], work_max=WORK_MAX["base"],
-    initial=90, command=slider_changed
+    initial=90, command=slider_changed, width=500
 )
 base_slider.pack(fill="x", pady=4)
 
@@ -1042,7 +1114,8 @@ servo_test_slider = LimitedSlider(
     work_min=WORK_MIN["test"], work_max=WORK_MAX["test"],
     initial=90, command=servo_test_changed,
     active_color=TEST_TRACK_ACTIVE,
-    thumb_outline=TEST_THUMB_OUTLINE
+    thumb_outline=TEST_THUMB_OUTLINE,
+    width=500
 )
 servo_test_slider.pack(fill="x", pady=(8, 4))
 
@@ -1055,27 +1128,40 @@ aux_frame.pack(fill="x", pady=(10, 4))
 magnet_card = tk.Frame(aux_frame, bg=PANEL_BG)
 magnet_card.pack(fill="x", pady=(0, 8))
 
-tk.Label(magnet_card, text="Magnet", bg=PANEL_BG, fg=DARK_GRAY, font=SANS_B).pack(anchor="w")
+tk.Label(magnet_card, text="Magnet (P4)", bg=PANEL_BG, fg=DARK_GRAY, font=SANS_B).pack(anchor="w")
 magnet_btn_row = tk.Frame(magnet_card, bg=PANEL_BG)
 magnet_btn_row.pack(anchor="w", pady=(4, 0))
 
-magnet_on_btn = abb_button(magnet_btn_row, "Magnet ON", lambda: set_magnet(True), width=12)
+magnet_on_btn = abb_button(magnet_btn_row, "ON", lambda: set_magnet(True), width=12)
 magnet_on_btn.pack(side="left")
-magnet_off_btn = abb_button(magnet_btn_row, "Magnet OFF", lambda: set_magnet(False), width=12)
+magnet_off_btn = abb_button(magnet_btn_row, "OFF", lambda: set_magnet(False), width=12)
 magnet_off_btn.pack(side="left", padx=(8, 0))
 
-# Pump controls
-pump_card = tk.Frame(aux_frame, bg=PANEL_BG)
-pump_card.pack(fill="x")
+# Vacuum controls
+vacuum_card = tk.Frame(aux_frame, bg=PANEL_BG)
+vacuum_card.pack(fill="x", pady=(0, 8))
 
-tk.Label(pump_card, text="Pump / Vacuum", bg=PANEL_BG, fg=DARK_GRAY, font=SANS_B).pack(anchor="w")
-pump_btn_row = tk.Frame(pump_card, bg=PANEL_BG)
-pump_btn_row.pack(anchor="w", pady=(4, 0))
+tk.Label(vacuum_card, text="Vacuum (P3)", bg=PANEL_BG, fg=DARK_GRAY, font=SANS_B).pack(anchor="w")
+vacuum_btn_row = tk.Frame(vacuum_card, bg=PANEL_BG)
+vacuum_btn_row.pack(anchor="w", pady=(4, 0))
 
-pump_on_btn = abb_button(pump_btn_row, "Pump ON", lambda: set_pump(True), width=12)
-pump_on_btn.pack(side="left")
-pump_off_btn = abb_button(pump_btn_row, "Pump OFF", lambda: set_pump(False), width=12)
-pump_off_btn.pack(side="left", padx=(8, 0))
+vacuum_on_btn = abb_button(vacuum_btn_row, "ON", lambda: set_vacuum(True), width=12)
+vacuum_on_btn.pack(side="left")
+vacuum_off_btn = abb_button(vacuum_btn_row, "OFF", lambda: set_vacuum(False), width=12)
+vacuum_off_btn.pack(side="left", padx=(8, 0))
+
+# Solenoid controls
+solenoid_card = tk.Frame(aux_frame, bg=PANEL_BG)
+solenoid_card.pack(fill="x")
+
+tk.Label(solenoid_card, text="Solenoid (P2)", bg=PANEL_BG, fg=DARK_GRAY, font=SANS_B).pack(anchor="w")
+solenoid_btn_row = tk.Frame(solenoid_card, bg=PANEL_BG)
+solenoid_btn_row.pack(anchor="w", pady=(4, 0))
+
+solenoid_on_btn = abb_button(solenoid_btn_row, "ON", lambda: set_solenoid(True), width=12)
+solenoid_on_btn.pack(side="left")
+solenoid_off_btn = abb_button(solenoid_btn_row, "OFF", lambda: set_solenoid(False), width=12)
+solenoid_off_btn.pack(side="left", padx=(8, 0))
 
 update_aux_buttons()
 
