@@ -793,12 +793,36 @@ def run_sequence(sequence, idx=0):
         return
 
     item = sequence[idx]
-    move = item["move"]
-    pause_ms = item.get("pause_ms", 0)
-    display_cmd = item.get("display", None)
 
-    if display_cmd:
-        display(display_cmd)
+    # optional one-shot display
+    if "display" in item and item["display"]:
+        display(item["display"])
+
+    # optional relay command
+    relay = item.get("relay", None)
+    state = item.get("state", None)
+    if relay and state:
+        relay = relay.upper()
+        state = state.upper()
+
+        if relay == "MAGNET":
+            set_magnet(state == "ON")
+        elif relay == "VACUUM":
+            set_vacuum(state == "ON")
+        elif relay == "SOLENOID":
+            set_solenoid(state == "ON")
+
+    pause_ms = item.get("pause_ms", 0)
+
+    # if this step has no move, just pause/continue
+    if "move" not in item:
+        if pause_ms > 0:
+            root.after(pause_ms, lambda: run_sequence(sequence, idx + 1))
+        else:
+            run_sequence(sequence, idx + 1)
+        return
+
+    move = item["move"]
 
     def after_move():
         if action_cancelled:
