@@ -1293,7 +1293,7 @@ def toggle_envelope_ui():
     env_var.set(f"Work Envelope: {'ON' if arm.show_envelope else 'OFF'}")
 
 tk.Button(
-    bottom_controls, text="Envelope On/Off", command=toggle_envelope_ui,
+    bottom_controls, text="Work Envelope", command=toggle_envelope_ui,
     bg=WHITE, fg=DARK_GRAY, activebackground=LIGHT_BLUE, activeforeground=DARK_GRAY,
     relief="raised", bd=1, font=SANS, padx=12, pady=5
 ).pack(side="left", padx=(10, 0))
