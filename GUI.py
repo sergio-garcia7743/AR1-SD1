@@ -62,7 +62,7 @@ LINKS = [70, 80, 60, 40, 20]
 # S2 = LINK 1
 # S3 = LINK 2
 # S4 = LINK 3
-# S5 = TOOL / GRIPPER
+# S5 = GRIPPER
 # ---------------------------------------------------------
 DEFAULT_ANGLE = 90
 
@@ -190,7 +190,12 @@ class LimitedSlider(tk.Frame):
         self.cv.bind("<Button-1>", self._click)
         self.cv.bind("<B1-Motion>", self._drag)
 
+        # redraw whenever canvas size changes
+        self.cv.bind("<Configure>", self._on_canvas_resize)
+
+        # draw once now, then again after layout completes
         self.draw()
+        self.after_idle(self.draw)
 
     def configure(self, **kwargs):
         if "command" in kwargs:
@@ -198,11 +203,17 @@ class LimitedSlider(tk.Frame):
 
     config = configure
 
+    def _on_canvas_resize(self, _event=None):
+        self.draw()
+
     def _track_x0(self):
         return self.left_pad
 
     def _track_x1(self):
-        return max(200, self.cv.winfo_width()) - self.right_pad
+        w = self.cv.winfo_width()
+        if w <= 1:
+            w = self.width
+        return w - self.right_pad
 
     def _val_to_x(self, v):
         x0 = self._track_x0()
@@ -260,7 +271,10 @@ class LimitedSlider(tk.Frame):
         cv = self.cv
         cv.delete("all")
 
-        current_width = max(200, self.cv.winfo_width())
+        current_width = self.cv.winfo_width()
+        if current_width <= 1:
+            current_width = self.width
+
         x0 = self.left_pad
         x1 = current_width - self.right_pad
 
@@ -1068,7 +1082,7 @@ slider_body = tk.Frame(slider_card, bg=PANEL_BG)
 slider_body.pack(fill="x", padx=12, pady=12)
 
 tool_slider = LimitedSlider(
-    slider_body, "Tool / Gripper",
+    slider_body, "Gripper",
     full_min=0, full_max=180,
     work_min=WORK_MIN["tool"], work_max=WORK_MAX["tool"],
     initial=90, command=slider_changed, width=500
