@@ -41,7 +41,6 @@ THUMB_FILL     = WHITE
 THUMB_OUTLINE  = ULTRAMARINE
 CENTER_MARKER  = "#7C8A99"
 
-# Slightly different color for Servo Test
 TEST_TRACK_ACTIVE  = "#6B8AF7"
 TEST_THUMB_OUTLINE = "#304FCF"
 
@@ -56,14 +55,6 @@ MIN_MOTION_STEPS = 35
 
 LINKS = [70, 80, 60, 40, 20]
 
-# ---------------------------------------------------------
-# REAL ROBOT ORDER / SERIAL ORDER TO ARDUINO
-# S1 = BASE
-# S2 = LINK 1
-# S3 = LINK 2
-# S4 = LINK 3
-# S5 = GRIPPER
-# ---------------------------------------------------------
 DEFAULT_ANGLE = 90
 
 S1_MIN, S1_MAX = 0, 180
@@ -78,7 +69,7 @@ WORK_MIN = {
     "link2": 25,
     "link3": 25,
     "tool":  0,
-    "test":  30,   # same as most limited link
+    "test":  30,
 }
 WORK_MAX = {
     "base":  160,
@@ -189,11 +180,8 @@ class LimitedSlider(tk.Frame):
 
         self.cv.bind("<Button-1>", self._click)
         self.cv.bind("<B1-Motion>", self._drag)
-
-        # redraw whenever canvas size changes
         self.cv.bind("<Configure>", self._on_canvas_resize)
 
-        # draw once now, then again after layout completes
         self.draw()
         self.after_idle(self.draw)
 
@@ -214,12 +202,6 @@ class LimitedSlider(tk.Frame):
         if w <= 1:
             w = self.width
         return w - self.right_pad
-
-    def _val_to_x(self, v):
-        x0 = self._track_x0()
-        x1 = self._track_x1()
-        t = (v - self.full_min) / (self.full_max - self.full_min)
-        return x0 + t * (x1 - x0)
 
     def _x_to_val(self, x):
         x0 = self._track_x0()
@@ -659,7 +641,6 @@ def send_test_servo(value):
     if not ready:
         return
     value = max(WORK_MIN["test"], min(WORK_MAX["test"], int(value)))
-    # placeholder for future IDE support
     serial_send_line(f"TESTSERVO:{value}")
 
 def set_magnet(state: bool):
@@ -667,48 +648,49 @@ def set_magnet(state: bool):
     magnet_on = state
     if ready:
         serial_send_line("MAGNET:ON" if state else "MAGNET:OFF")
-    update_aux_buttons()
+    update_tool_control_buttons()
 
 def set_vacuum(state: bool):
     global vacuum_on
     vacuum_on = state
     if ready:
         serial_send_line("VACUUM:ON" if state else "VACUUM:OFF")
-    update_aux_buttons()
+    update_tool_control_buttons()
 
 def set_solenoid(state: bool):
     global solenoid_on
     solenoid_on = state
     if ready:
         serial_send_line("SOLENOID:ON" if state else "SOLENOID:OFF")
-    update_aux_buttons()
+    update_tool_control_buttons()
 
-def update_aux_buttons():
+def toggle_magnet():
+    set_magnet(not magnet_on)
+
+def toggle_vacuum():
+    set_vacuum(not vacuum_on)
+
+def toggle_solenoid():
+    set_solenoid(not solenoid_on)
+
+def update_tool_control_buttons():
     if magnet_on:
-        magnet_on_btn.config(bg=SUCCESS, fg=WHITE, activebackground=SUCCESS_BRIGHT)
-        magnet_off_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
+        magnet_toggle_btn.config(text="Magnet (P4): ON", bg=SUCCESS, fg=WHITE, activebackground=SUCCESS_BRIGHT)
     else:
-        magnet_on_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
-        magnet_off_btn.config(bg=DARK_GRAY, fg=WHITE, activebackground="#444C55")
-
-    if vacuum_on:
-        vacuum_on_btn.config(bg=SUCCESS, fg=WHITE, activebackground=SUCCESS_BRIGHT)
-        vacuum_off_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
-    else:
-        vacuum_on_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
-        vacuum_off_btn.config(bg=DARK_GRAY, fg=WHITE, activebackground="#444C55")
+        magnet_toggle_btn.config(text="Magnet (P4): OFF", bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
 
     if solenoid_on:
-        solenoid_on_btn.config(bg=SUCCESS, fg=WHITE, activebackground=SUCCESS_BRIGHT)
-        solenoid_off_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
+        solenoid_toggle_btn.config(text="Solenoid (P2): ON", bg=SUCCESS, fg=WHITE, activebackground=SUCCESS_BRIGHT)
     else:
-        solenoid_on_btn.config(bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
-        solenoid_off_btn.config(bg=DARK_GRAY, fg=WHITE, activebackground="#444C55")
+        solenoid_toggle_btn.config(text="Solenoid (P2): OFF", bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
+
+    if vacuum_on:
+        vacuum_toggle_btn.config(text="Pump (P3): ON", bg=SUCCESS, fg=WHITE, activebackground=SUCCESS_BRIGHT)
+    else:
+        vacuum_toggle_btn.config(text="Pump (P3): OFF", bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
 
 # ---------------------------------------------------------
 # POSE UPDATE
-# vals are in REAL ROBOT ORDER
-# [base, link1, link2, link3, tool]
 # ---------------------------------------------------------
 def update_pose(vals, send_serial=True):
     base, link1, link2, link3, tool = clamp_ranges(*vals)
@@ -794,11 +776,9 @@ def run_sequence(sequence, idx=0):
 
     item = sequence[idx]
 
-    # optional one-shot display
     if "display" in item and item["display"]:
         display(item["display"])
 
-    # optional relay command
     relay = item.get("relay", None)
     state = item.get("state", None)
     if relay and state:
@@ -814,7 +794,6 @@ def run_sequence(sequence, idx=0):
 
     pause_ms = item.get("pause_ms", 0)
 
-    # if this step has no move, just pause/continue
     if "move" not in item:
         if pause_ms > 0:
             root.after(pause_ms, lambda: run_sequence(sequence, idx + 1))
@@ -942,6 +921,27 @@ def actionC():
         {"display": "SMILE", "move": [90, 90, 90, 90, 90], "pause_ms": 0},
     ]
     start_action(seq)
+
+def select_gripper():
+    start_action([
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+    ])
+
+def select_pump():
+    start_action([
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+    ])
+
+def select_pneumatic():
+    start_action([
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+    ])
 
 # ---------------------------------------------------------
 # GUI HELPERS
@@ -1145,7 +1145,6 @@ base_slider = LimitedSlider(
 )
 base_slider.pack(fill="x", pady=4)
 
-# New Servo Test slider
 servo_test_slider = LimitedSlider(
     slider_body, "Servo Test  (Pin 31)",
     full_min=0, full_max=180,
@@ -1158,50 +1157,6 @@ servo_test_slider = LimitedSlider(
 servo_test_slider.pack(fill="x", pady=(8, 4))
 
 servo_test_var = tk.StringVar(value=" 90°")
-
-aux_frame = tk.Frame(slider_body, bg=PANEL_BG)
-aux_frame.pack(fill="x", pady=(10, 4))
-
-# Magnet controls
-magnet_card = tk.Frame(aux_frame, bg=PANEL_BG)
-magnet_card.pack(fill="x", pady=(0, 8))
-
-tk.Label(magnet_card, text="Magnet (P4)", bg=PANEL_BG, fg=DARK_GRAY, font=SANS_B).pack(anchor="w")
-magnet_btn_row = tk.Frame(magnet_card, bg=PANEL_BG)
-magnet_btn_row.pack(anchor="w", pady=(4, 0))
-
-magnet_on_btn = abb_button(magnet_btn_row, "ON", lambda: set_magnet(True), width=12)
-magnet_on_btn.pack(side="left")
-magnet_off_btn = abb_button(magnet_btn_row, "OFF", lambda: set_magnet(False), width=12)
-magnet_off_btn.pack(side="left", padx=(8, 0))
-
-# Vacuum controls
-vacuum_card = tk.Frame(aux_frame, bg=PANEL_BG)
-vacuum_card.pack(fill="x", pady=(0, 8))
-
-tk.Label(vacuum_card, text="Vacuum (P3)", bg=PANEL_BG, fg=DARK_GRAY, font=SANS_B).pack(anchor="w")
-vacuum_btn_row = tk.Frame(vacuum_card, bg=PANEL_BG)
-vacuum_btn_row.pack(anchor="w", pady=(4, 0))
-
-vacuum_on_btn = abb_button(vacuum_btn_row, "ON", lambda: set_vacuum(True), width=12)
-vacuum_on_btn.pack(side="left")
-vacuum_off_btn = abb_button(vacuum_btn_row, "OFF", lambda: set_vacuum(False), width=12)
-vacuum_off_btn.pack(side="left", padx=(8, 0))
-
-# Solenoid controls
-solenoid_card = tk.Frame(aux_frame, bg=PANEL_BG)
-solenoid_card.pack(fill="x")
-
-tk.Label(solenoid_card, text="Solenoid (P2)", bg=PANEL_BG, fg=DARK_GRAY, font=SANS_B).pack(anchor="w")
-solenoid_btn_row = tk.Frame(solenoid_card, bg=PANEL_BG)
-solenoid_btn_row.pack(anchor="w", pady=(4, 0))
-
-solenoid_on_btn = abb_button(solenoid_btn_row, "ON", lambda: set_solenoid(True), width=12)
-solenoid_on_btn.pack(side="left")
-solenoid_off_btn = abb_button(solenoid_btn_row, "OFF", lambda: set_solenoid(False), width=12)
-solenoid_off_btn.pack(side="left", padx=(8, 0))
-
-update_aux_buttons()
 
 legend = tk.Label(
     slider_body,
@@ -1331,7 +1286,7 @@ tk.Label(
 ).pack(side="right")
 
 # ---------------------------------------------------------
-# PROGRAM SEQUENCES CARD UNDER VIEW SECTION
+# PROGRAM SEQUENCES CARD
 # ---------------------------------------------------------
 program_card = make_card(right_col)
 program_card.pack(fill="x", pady=(10, 0))
@@ -1345,6 +1300,39 @@ abb_button(program_body, "Action A", actionA, width=10, style="primary").pack(si
 abb_button(program_body, "Action B", actionB, width=10, style="primary").pack(side="left", padx=(8, 0))
 abb_button(program_body, "Action C", actionC, width=10, style="primary").pack(side="left", padx=(8, 0))
 abb_button(program_body, "Stop", cancel_action, width=10, style="danger").pack(side="left", padx=(8, 0))
+
+# ---------------------------------------------------------
+# TOOL SELECTION CARD
+# ---------------------------------------------------------
+tool_select_card = make_card(right_col)
+tool_select_card.pack(fill="x", pady=(10, 0))
+section_header(tool_select_card, "Tool Selection")
+
+tool_select_body = tk.Frame(tool_select_card, bg=PANEL_BG)
+tool_select_body.pack(fill="x", padx=12, pady=12)
+
+abb_button(tool_select_body, "Gripper", select_gripper, width=10, style="primary").pack(side="left")
+abb_button(tool_select_body, "Pump", select_pump, width=10, style="primary").pack(side="left", padx=(8, 0))
+abb_button(tool_select_body, "Pneumatic", select_pneumatic, width=10, style="primary").pack(side="left", padx=(8, 0))
+
+# ---------------------------------------------------------
+# TOOL CONTROLS CARD
+# ---------------------------------------------------------
+tool_controls_card = make_card(right_col)
+tool_controls_card.pack(fill="x", pady=(10, 0))
+section_header(tool_controls_card, "Tool Controls")
+
+tool_controls_body = tk.Frame(tool_controls_card, bg=PANEL_BG)
+tool_controls_body.pack(fill="x", padx=12, pady=12)
+
+magnet_toggle_btn = abb_button(tool_controls_body, "Magnet (P4): OFF", toggle_magnet, width=16)
+magnet_toggle_btn.pack(side="left")
+
+solenoid_toggle_btn = abb_button(tool_controls_body, "Solenoid (P2): OFF", toggle_solenoid, width=16)
+solenoid_toggle_btn.pack(side="left", padx=(8, 0))
+
+vacuum_toggle_btn = abb_button(tool_controls_body, "Pump (P3): OFF", toggle_vacuum, width=16)
+vacuum_toggle_btn.pack(side="left", padx=(8, 0))
 
 # ---------------------------------------------------------
 # FOOTER
@@ -1371,6 +1359,7 @@ def info_loop():
 update_pose([90, 90, 90, 90, 90], send_serial=False)
 servo_test_slider.set(90)
 servo_test_changed()
+update_tool_control_buttons()
 info_loop()
 
 root.mainloop()
