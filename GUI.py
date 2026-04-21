@@ -16,6 +16,12 @@ vacuum_on = False
 solenoid_on = False
 
 # ---------------------------------------------------------
+# MANUAL TOOL STATE
+# ---------------------------------------------------------
+active_tool = None          # "gripper", "pump", "pneumatic", or None
+tool_attached = False
+
+# ---------------------------------------------------------
 # BRAND COLORS
 # ---------------------------------------------------------
 ULTRAMARINE = "#003087"
@@ -768,10 +774,12 @@ def animate_move(targets, on_done=None):
 
     step_fn(1)
 
-def run_sequence(sequence, idx=0):
+def run_sequence(sequence, idx=0, on_done=None):
     if action_cancelled:
         return
     if idx >= len(sequence):
+        if on_done:
+            on_done()
         return
 
     item = sequence[idx]
@@ -796,9 +804,9 @@ def run_sequence(sequence, idx=0):
 
     if "move" not in item:
         if pause_ms > 0:
-            root.after(pause_ms, lambda: run_sequence(sequence, idx + 1))
+            root.after(pause_ms, lambda: run_sequence(sequence, idx + 1, on_done))
         else:
-            run_sequence(sequence, idx + 1)
+            run_sequence(sequence, idx + 1, on_done)
         return
 
     move = item["move"]
@@ -807,22 +815,63 @@ def run_sequence(sequence, idx=0):
         if action_cancelled:
             return
         if pause_ms > 0:
-            root.after(pause_ms, lambda: run_sequence(sequence, idx + 1))
+            root.after(pause_ms, lambda: run_sequence(sequence, idx + 1, on_done))
         else:
-            run_sequence(sequence, idx + 1)
+            run_sequence(sequence, idx + 1, on_done)
 
     animate_move(move, on_done=after_move)
 
-def start_action(sequence):
+def start_action(sequence, on_done=None):
     global is_animating, action_cancelled
     if is_animating:
         return
     action_cancelled = False
-    run_sequence(sequence)
+    run_sequence(sequence, on_done=on_done)
 
 def cancel_action():
     global action_cancelled
     action_cancelled = True
+
+# ---------------------------------------------------------
+# MANUAL TOOL STATE HELPERS
+# ---------------------------------------------------------
+def update_manual_mode_buttons():
+    if tool_attached:
+        gripper_select_btn.config(state="disabled")
+        pump_select_btn.config(state="disabled")
+        pneumatic_select_btn.config(state="disabled")
+
+        home_btn.config(state="disabled")
+        action_a_btn.config(state="disabled")
+        action_b_btn.config(state="disabled")
+        action_c_btn.config(state="disabled")
+
+        return_tool_btn.config(state="normal")
+    else:
+        gripper_select_btn.config(state="normal")
+        pump_select_btn.config(state="normal")
+        pneumatic_select_btn.config(state="normal")
+
+        home_btn.config(state="normal")
+        action_a_btn.config(state="normal")
+        action_b_btn.config(state="normal")
+        action_c_btn.config(state="normal")
+
+        return_tool_btn.config(state="disabled")
+
+def mark_tool_attached(tool_name):
+    global active_tool, tool_attached
+    active_tool = tool_name
+    tool_attached = True
+    update_manual_mode_buttons()
+    status_var.set(f"Manual tool active: {tool_name.capitalize()}")
+
+def mark_tool_returned():
+    global active_tool, tool_attached
+    active_tool = None
+    tool_attached = False
+    update_manual_mode_buttons()
+    status_var.set("Tool returned. Ready for new selection.")
 
 # ---------------------------------------------------------
 # COMMANDS
@@ -849,11 +898,19 @@ def servo_test_changed(_val=None):
     send_test_servo(servo_test_slider.get())
 
 def go_home():
+    if tool_attached:
+        status_var.set("Return the active tool before using Home.")
+        return
+
     start_action([
         {"display": "SMILE", "move": [90, 90, 90, 90, 90], "pause_ms": 0}
     ])
 
 def actionA():
+    if tool_attached:
+        status_var.set("Return the active tool before running Action A.")
+        return
+
     start_action([
         {"display": "A", "move": [90, 150, 120, 90, 120], "pause_ms": 500},
         {"move": [115, 150, 120, 90, 120], "pause_ms": 500},
@@ -868,6 +925,10 @@ def actionA():
     ])
 
 def actionB():
+    if tool_attached:
+        status_var.set("Return the active tool before running Action B.")
+        return
+
     seq = [
         {"display": "B", "move": [90, 90, 152, 90, 130], "pause_ms": 500},
         {"move": [115, 90, 152, 90, 130], "pause_ms": 500},
@@ -887,6 +948,10 @@ def actionB():
     start_action(seq)
 
 def actionC():
+    if tool_attached:
+        status_var.set("Return the active tool before running Action C.")
+        return
+
     seq = [
         {"display": "C", "move": [90, 134, 151, 90, 125], "pause_ms": 0},
         {"move": [115, 134, 151, 90, 125], "pause_ms": 0},
@@ -923,25 +988,61 @@ def actionC():
     start_action(seq)
 
 def select_gripper():
+    if is_animating or tool_attached:
+        return
+
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
         {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
         {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
-    ])
+    ], on_done=lambda: mark_tool_attached("gripper"))
 
 def select_pump():
+    if is_animating or tool_attached:
+        return
+
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
         {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
         {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
-    ])
+    ], on_done=lambda: mark_tool_attached("pump"))
 
 def select_pneumatic():
+    if is_animating or tool_attached:
+        return
+
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
         {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
         {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
-    ])
+    ], on_done=lambda: mark_tool_attached("pneumatic"))
+
+def return_active_tool():
+    if is_animating or not tool_attached or active_tool is None:
+        return
+
+    if active_tool == "gripper":
+        seq = [
+            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+            {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+        ]
+    elif active_tool == "pump":
+        seq = [
+            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+            {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+        ]
+    elif active_tool == "pneumatic":
+        seq = [
+            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
+            {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+        ]
+    else:
+        return
+
+    start_action(seq, on_done=mark_tool_returned)
 
 # ---------------------------------------------------------
 # GUI HELPERS
@@ -1295,11 +1396,20 @@ section_header(program_card, "Program Sequences")
 program_body = tk.Frame(program_card, bg=PANEL_BG)
 program_body.pack(fill="x", padx=12, pady=12)
 
-abb_button(program_body, "Home", go_home, width=10, style="home").pack(side="left")
-abb_button(program_body, "Action A", actionA, width=10, style="primary").pack(side="left", padx=(8, 0))
-abb_button(program_body, "Action B", actionB, width=10, style="primary").pack(side="left", padx=(8, 0))
-abb_button(program_body, "Action C", actionC, width=10, style="primary").pack(side="left", padx=(8, 0))
-abb_button(program_body, "Stop", cancel_action, width=10, style="danger").pack(side="left", padx=(8, 0))
+home_btn = abb_button(program_body, "Home", go_home, width=10, style="home")
+home_btn.pack(side="left")
+
+action_a_btn = abb_button(program_body, "Action A", actionA, width=10, style="primary")
+action_a_btn.pack(side="left", padx=(8, 0))
+
+action_b_btn = abb_button(program_body, "Action B", actionB, width=10, style="primary")
+action_b_btn.pack(side="left", padx=(8, 0))
+
+action_c_btn = abb_button(program_body, "Action C", actionC, width=10, style="primary")
+action_c_btn.pack(side="left", padx=(8, 0))
+
+stop_btn = abb_button(program_body, "Stop", cancel_action, width=10, style="danger")
+stop_btn.pack(side="left", padx=(8, 0))
 
 # ---------------------------------------------------------
 # TOOL SELECTION CARD
@@ -1311,9 +1421,17 @@ section_header(tool_select_card, "Tool Selection")
 tool_select_body = tk.Frame(tool_select_card, bg=PANEL_BG)
 tool_select_body.pack(fill="x", padx=12, pady=12)
 
-abb_button(tool_select_body, "Gripper", select_gripper, width=10, style="primary").pack(side="left")
-abb_button(tool_select_body, "Pump", select_pump, width=10, style="primary").pack(side="left", padx=(8, 0))
-abb_button(tool_select_body, "Pneumatic", select_pneumatic, width=10, style="primary").pack(side="left", padx=(8, 0))
+gripper_select_btn = abb_button(tool_select_body, "Gripper", select_gripper, width=10, style="primary")
+gripper_select_btn.pack(side="left")
+
+pump_select_btn = abb_button(tool_select_body, "Pump", select_pump, width=10, style="primary")
+pump_select_btn.pack(side="left", padx=(8, 0))
+
+pneumatic_select_btn = abb_button(tool_select_body, "Pneumatic", select_pneumatic, width=10, style="primary")
+pneumatic_select_btn.pack(side="left", padx=(8, 0))
+
+return_tool_btn = abb_button(tool_select_body, "Tool Return", return_active_tool, width=12, style="home", state="disabled")
+return_tool_btn.pack(side="left", padx=(8, 0))
 
 # ---------------------------------------------------------
 # TOOL CONTROLS CARD
@@ -1343,7 +1461,7 @@ footer.pack_propagate(False)
 
 tk.Label(
     footer,
-    text="Sponsored by Los Alamos National Lab | Savannah River National Laboratory | TECHSOURCE",
+    text="In collaboration with Los Alamos National Lab | Savannah River National Laboratory | TechSource",
     bg=ULTRAMARINE,
     fg=WHITE,
     font=("Segoe UI", 9, "bold")
@@ -1360,6 +1478,7 @@ update_pose([90, 90, 90, 90, 90], send_serial=False)
 servo_test_slider.set(90)
 servo_test_changed()
 update_tool_control_buttons()
+update_manual_mode_buttons()
 info_loop()
 
 root.mainloop()
