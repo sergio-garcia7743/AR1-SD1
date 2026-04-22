@@ -994,13 +994,12 @@ def select_gripper():
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
         {"move": [90, 65, 132, 136, 90], "pause_ms": 600},
-        # Base rotates and robot begins going to location
         {"move": [152, 65, 132, 136, 90], "pause_ms": 600},
         {"move": [152, 101, 145, 151, 77], "pause_ms": 1000},
-        {"relay": "MAGNET", "state": "ON", "pause_ms": 600},
         {"move": [152, 103, 145, 151, 77], "pause_ms": 1200},
-        {"move": [152, 60, 142, 135, 90], "pause_ms": 600},
-        {"move": [90, 60, 142, 135, 90], "pause_ms": 600},
+        {"relay": "MAGNET", "state": "ON", "pause_ms": 1000},
+        {"move": [152, 101, 145, 151, 77], "pause_ms": 1000},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
     ], on_done=lambda: mark_tool_attached("gripper"))
 
 def select_pump():
@@ -1034,9 +1033,14 @@ def return_active_tool():
 
     if active_tool == "gripper":
         seq = [
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
+        {"move": [90, 65, 132, 136, 90], "pause_ms": 600},
+        {"move": [152, 65, 132, 136, 90], "pause_ms": 600},
+        {"move": [152, 101, 145, 151, 77], "pause_ms": 1000},
+        {"move": [152, 103, 145, 151, 77], "pause_ms": 1200},
+        {"relay": "MAGNET", "state": "OFF", "pause_ms": 1000},
+        {"move": [152, 101, 145, 151, 77], "pause_ms": 1000},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
         ]
     elif active_tool == "pump":
         seq = [
