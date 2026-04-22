@@ -992,9 +992,20 @@ def select_gripper():
         return
 
     start_action([
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+        # Initiate selection
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
+        {"move": [90, 65, 132, 136, 90], "pause_ms": 600},
+        # Base rotates and robot begins going to location
+        {"move": [152, 65, 132, 136, 90], "pause_ms": 600},
+        # Position and pause to align
+        {"move": [152, 101, 145, 151, 77], "pause_ms": 1000},
+        # Magnet ON
+        {"relay": "MAGNET", "state": "ON", "pause_ms": 600},
+        # Lower TCP to pick up the gripper, delay to ensure contact
+        {"move": [152, 103, 145, 151, 77], "pause_ms": 1200},
+        # Raise TCP and go to pose
+        {"move": [152, 60, 142, 135, 90], "pause_ms": 600},
+        {"move": [90, 60, 142, 135, 90], "pause_ms": 600},
     ], on_done=lambda: mark_tool_attached("gripper"))
 
 def select_pump():
@@ -1012,9 +1023,19 @@ def select_pneumatic():
         return
 
     start_action([
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+        Initiate selection
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
+        {"move": [90, 65, 132, 136, 90], "pause_ms": 600},
+        # Base rotates robot begins going to location
+        {"move": [22, 65, 132, 136, 90], "pause_ms": 600},
+        # Position and pause to align
+        {"move": [20, 107, 139, 150, 88], "pause_ms": 1200},
+        # Magnet ON
+        {"relay": "MAGNET", "state": "ON", "pause_ms": 600},
+        # Lower TCP to pick up the gripper, delay to ensure contactg
+        {"move": [20, 111, 139, 150, 88], "pause_ms": 1200},
+        {"move": [20, 60, 147, 128, 90], "pause_ms": 600},
+        {"move": [90, 60, 147, 128, 90], "pause_ms": 600},
     ], on_done=lambda: mark_tool_attached("pneumatic"))
 
 def return_active_tool():
