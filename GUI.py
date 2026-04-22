@@ -1023,7 +1023,7 @@ def select_pneumatic():
         return
 
     start_action([
-        Initiate selection
+        #Initiate selection
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
         {"move": [90, 65, 132, 136, 90], "pause_ms": 600},
         # Base rotates robot begins going to location
