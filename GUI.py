@@ -1,3 +1,4 @@
+# WORKING AS OF APRIL 22 | 10:00 PM
 import tkinter as tk
 from tkinter import ttk
 import serial
