@@ -1,10 +1,13 @@
-# WORKING AS OF APRIL 22 | 10:00 PM
 import tkinter as tk
 from tkinter import ttk
 import serial
 import serial.tools.list_ports
 import time
 import math
+import threading
+
+import cv2
+from PIL import Image, ImageTk
 
 BAUD_RATE = 115200
 
@@ -15,11 +18,12 @@ action_cancelled = False
 magnet_on = False
 vacuum_on = False
 solenoid_on = False
+precision_lock = False
 
 # ---------------------------------------------------------
 # MANUAL TOOL STATE
 # ---------------------------------------------------------
-active_tool = None          # "gripper", "pump", "pneumatic", or None
+active_tool = None
 tool_attached = False
 
 # ---------------------------------------------------------
@@ -61,14 +65,7 @@ FRAME_MS = 16
 MIN_MOTION_STEPS = 35
 
 LINKS = [70, 80, 60, 40, 20]
-
 DEFAULT_ANGLE = 90
-
-S1_MIN, S1_MAX = 0, 180
-S2_MIN, S2_MAX = 20, 160
-S3_MIN, S3_MAX = 10, 170
-S4_MIN, S4_MAX = 0, 180
-S5_MIN, S5_MAX = 0, 180
 
 WORK_MIN = {
     "base":  20,
@@ -76,7 +73,7 @@ WORK_MIN = {
     "link2": 25,
     "link3": 25,
     "tool":  0,
-    "test":  30,
+    "test":  85,
 }
 WORK_MAX = {
     "base":  160,
@@ -84,7 +81,7 @@ WORK_MAX = {
     "link2": 155,
     "link3": 155,
     "tool":  180,
-    "test":  150,
+    "test":  95,
 }
 
 # ---------------------------------------------------------
@@ -108,13 +105,13 @@ class LimitedSlider(tk.Frame):
     ):
         super().__init__(parent, bg=PANEL_BG)
 
-        self.label_text = label
         self.full_min = full_min
         self.full_max = full_max
         self.work_min = work_min
         self.work_max = work_max
         self.value = max(self.work_min, min(self.work_max, int(initial)))
         self.command = command
+        self.pointer_locked = False
 
         self.width = width
         self.height = height
@@ -192,6 +189,9 @@ class LimitedSlider(tk.Frame):
         self.draw()
         self.after_idle(self.draw)
 
+    def set_pointer_lock(self, locked: bool):
+        self.pointer_locked = locked
+
     def configure(self, **kwargs):
         if "command" in kwargs:
             self.command = kwargs["command"]
@@ -233,9 +233,13 @@ class LimitedSlider(tk.Frame):
             self._emit_change()
 
     def _click(self, e):
+        if self.pointer_locked:
+            return
         self._set_from_x(e.x)
 
     def _drag(self, e):
+        if self.pointer_locked:
+            return
         self._set_from_x(e.x)
 
     def step_down(self):
@@ -302,6 +306,15 @@ class LimitedSlider(tk.Frame):
             fill=THUMB_FILL, outline=self.thumb_outline, width=2
         )
 
+        if self.pointer_locked:
+            cv.create_text(
+                x1, 12,
+                text="LOCKED",
+                fill=DANGER,
+                font=("Segoe UI", 8, "bold"),
+                anchor="e"
+            )
+
 # ---------------------------------------------------------
 # 3D MATH
 # ---------------------------------------------------------
@@ -356,6 +369,10 @@ class ArmCanvas:
 
         self.cam_theta = -math.pi / 4
         self.cam_phi = math.radians(28)
+        self.zoom = 1.0
+        self.zoom_min = 0.55
+        self.zoom_max = 2.50
+        self.zoom_step = 1.10
 
         self._drag_x = None
         self._drag_y = None
@@ -369,6 +386,10 @@ class ArmCanvas:
         self.cv.bind("<B1-Motion>", self._mm)
         self.cv.bind("<ButtonRelease-1>", self._mu)
         self.cv.bind("<Configure>", self._on_resize)
+
+        self.cv.bind("<MouseWheel>", self._mousewheel_zoom)
+        self.cv.bind("<Button-4>", lambda e: self.zoom_in())
+        self.cv.bind("<Button-5>", lambda e: self.zoom_out())
 
         self.draw()
 
@@ -387,6 +408,25 @@ class ArmCanvas:
         ]
         self.draw()
 
+    def zoom_in(self):
+        self.zoom = min(self.zoom_max, self.zoom * self.zoom_step)
+        self.draw()
+
+    def zoom_out(self):
+        self.zoom = max(self.zoom_min, self.zoom / self.zoom_step)
+        self.draw()
+
+    def reset_zoom(self):
+        self.zoom = 1.0
+        self.draw()
+
+    def _mousewheel_zoom(self, e):
+        if hasattr(e, "delta") and e.delta != 0:
+            if e.delta > 0:
+                self.zoom_in()
+            else:
+                self.zoom_out()
+
     def _md(self, e):
         self._drag_x, self._drag_y = e.x, e.y
 
@@ -399,7 +439,7 @@ class ArmCanvas:
         self._drag_x, self._drag_y = e.x, e.y
         self.draw()
 
-    def _mu(self, e):
+    def _mu(self, _e):
         self._drag_x = None
         self._drag_y = None
 
@@ -413,8 +453,8 @@ class ArmCanvas:
         y2 = cb*y - sb*z2
         z3 = sb*y + cb*z2
 
-        cx, cy = self.W * 0.42, self.H * 0.60
-        fov = max(420, min(self.W, self.H) * 0.95)
+        cx, cy = self.W * 0.50, self.H * 0.60
+        fov = max(420, min(self.W, self.H) * 0.95) * self.zoom
         sc = fov / (fov + z3 + 300)
         return cx + x2 * sc, cy - y2 * sc, sc
 
@@ -560,6 +600,192 @@ class ArmCanvas:
                 cv.create_text(px, py, text=str(i), fill=WHITE, font=("Segoe UI", max(6, int(r * 0.8)), "bold"))
 
 # ---------------------------------------------------------
+# LIVE VIEW PANEL
+# ---------------------------------------------------------
+class LiveViewPanel:
+    def __init__(self, parent):
+        self.parent = parent
+        self.cap = None
+        self.current_index = None
+        self.running = False
+        self.photo = None
+        self.after_id = None
+
+        self.wrap = tk.Frame(parent, bg=WHITE)
+        self.wrap.pack(fill="both", expand=True)
+
+        self.canvas = tk.Canvas(
+            self.wrap,
+            bg="#111111",
+            highlightthickness=1,
+            highlightbackground=BORDER
+        )
+        self.canvas.place(x=0, y=0)
+
+        self.wrap.bind("<Configure>", self.enforce_16_9)
+
+    def enforce_16_9(self, _event=None):
+        w = max(100, self.wrap.winfo_width())
+        h = max(100, self.wrap.winfo_height())
+
+        target_ratio = 16 / 9
+        current_ratio = w / h
+
+        if current_ratio > target_ratio:
+            box_h = h
+            box_w = int(h * target_ratio)
+        else:
+            box_w = w
+            box_h = int(w / target_ratio)
+
+        x = (w - box_w) // 2
+        y = (h - box_h) // 2
+
+        self.canvas.place(x=x, y=y, width=box_w, height=box_h)
+
+    def _schedule_after(self, delay_ms, callback):
+        top = self.wrap.winfo_toplevel()
+        if top and top.winfo_exists():
+            self.after_id = top.after(delay_ms, callback)
+
+    def scan_cameras(self, max_index=1):
+        found = []
+        for i in range(max_index + 1):
+            cap = None
+            try:
+                cap = cv2.VideoCapture(i, cv2.CAP_AVFOUNDATION)
+                if cap is not None and cap.isOpened():
+                    found.append(i)
+            except Exception:
+                pass
+            finally:
+                if cap is not None:
+                    try:
+                        cap.release()
+                    except Exception:
+                        pass
+        return found
+
+    def start(self, cam_index):
+        self.stop()
+
+        try:
+            self.cap = cv2.VideoCapture(cam_index, cv2.CAP_AVFOUNDATION)
+        except Exception:
+            self.cap = None
+
+        if not self.cap or not self.cap.isOpened():
+            self.current_index = None
+            self.running = False
+            self.draw_message("Unable to open selected webcam")
+            return False
+
+        self.current_index = cam_index
+        self.running = True
+        self._schedule_after(50, self._update_frame)
+        return True
+
+    def stop(self):
+        self.running = False
+
+        if self.after_id is not None:
+            try:
+                top = self.wrap.winfo_toplevel()
+                if top and top.winfo_exists():
+                    top.after_cancel(self.after_id)
+            except Exception:
+                pass
+            self.after_id = None
+
+        if self.cap is not None:
+            try:
+                self.cap.release()
+            except Exception:
+                pass
+
+        self.cap = None
+        self.current_index = None
+        self.photo = None
+
+    def draw_message(self, msg):
+        self.canvas.delete("all")
+        w = max(100, self.canvas.winfo_width())
+        h = max(100, self.canvas.winfo_height())
+        self.canvas.create_text(
+            w / 2, h / 2,
+            text=msg,
+            fill=WHITE,
+            font=("Segoe UI", 12, "bold")
+        )
+
+    def _update_frame(self):
+        self.after_id = None
+
+        if not self.running or self.cap is None:
+            return
+
+        try:
+            ok, frame = self.cap.read()
+        except Exception:
+            ok, frame = False, None
+
+        if not ok or frame is None:
+            self.draw_message("Live feed unavailable")
+            self._schedule_after(250, self._update_frame)
+            return
+
+        try:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        except Exception:
+            self.draw_message("Camera frame error")
+            self._schedule_after(250, self._update_frame)
+            return
+
+        cw = self.canvas.winfo_width()
+        ch = self.canvas.winfo_height()
+
+        if cw < 10 or ch < 10:
+            self._schedule_after(100, self._update_frame)
+            return
+
+        fh, fw = frame.shape[:2]
+        if fh <= 0 or fw <= 0:
+            self.draw_message("Invalid camera frame")
+            self._schedule_after(250, self._update_frame)
+            return
+
+        canvas_ratio = cw / ch
+        frame_ratio = fw / fh
+
+        if frame_ratio > canvas_ratio:
+            scale = ch / fh
+            new_w = int(fw * scale)
+            new_h = ch
+        else:
+            scale = cw / fw
+            new_w = cw
+            new_h = int(fh * scale)
+
+        try:
+            frame = cv2.resize(frame, (new_w, new_h))
+        except Exception:
+            self.draw_message("Resize error")
+            self._schedule_after(250, self._update_frame)
+            return
+
+        crop_x = max(0, (new_w - cw) // 2)
+        crop_y = max(0, (new_h - ch) // 2)
+        frame = frame[crop_y:crop_y + ch, crop_x:crop_x + cw]
+
+        img = Image.fromarray(frame)
+        self.photo = ImageTk.PhotoImage(img)
+
+        self.canvas.delete("all")
+        self.canvas.create_image(cw // 2, ch // 2, image=self.photo, anchor="center")
+
+        self._schedule_after(30, self._update_frame)
+
+# ---------------------------------------------------------
 # SERIAL HELPERS
 # ---------------------------------------------------------
 def list_com_ports():
@@ -586,7 +812,7 @@ def connect_serial():
     if ser and ser.is_open:
         try:
             ser.close()
-        except:
+        except Exception:
             pass
         ser = None
 
@@ -623,6 +849,68 @@ def refresh_ports():
     if ports and not port_var.get():
         port_var.set(ports[0])
     status_var.set(f"{len(ports)} port(s) found.")
+
+# ---------------------------------------------------------
+# CAMERA HELPERS
+# ---------------------------------------------------------
+_camera_scan_in_progress = False
+
+def refresh_cameras():
+    global _camera_scan_in_progress
+    if _camera_scan_in_progress:
+        return
+
+    _camera_scan_in_progress = True
+    live_status_var.set("Scanning cameras...")
+
+    def _scan():
+        cams = live_view.scan_cameras(max_index=1)
+        labels = [f"Camera {i}" for i in cams]
+
+        def _update():
+            global _camera_scan_in_progress
+            _camera_scan_in_progress = False
+            camera_combo["values"] = labels
+
+            if labels:
+                if camera_var.get() not in labels:
+                    camera_var.set(labels[0])
+                live_status_var.set(f"{len(labels)} camera(s) found.")
+            else:
+                camera_var.set("")
+                live_status_var.set("No webcams found.")
+                live_view.draw_message("No webcam detected")
+
+        root.after(0, _update)
+
+    threading.Thread(target=_scan, daemon=True).start()
+
+def selected_camera_index():
+    val = camera_var.get().strip()
+    if not val:
+        return None
+    try:
+        return int(val.split()[-1])
+    except Exception:
+        return None
+
+def start_selected_camera():
+    idx = selected_camera_index()
+    if idx is None:
+        live_status_var.set("Select a webcam first.")
+        live_view.draw_message("No camera selected")
+        return
+
+    ok = live_view.start(idx)
+    if ok:
+        live_status_var.set(f"Live View running on Camera {idx}")
+    else:
+        live_status_var.set(f"Could not open Camera {idx}")
+
+def stop_selected_camera():
+    live_view.stop()
+    live_view.draw_message("Live view stopped")
+    live_status_var.set("Live view stopped")
 
 # ---------------------------------------------------------
 # SERIAL SEND
@@ -875,6 +1163,25 @@ def mark_tool_returned():
     status_var.set("Tool returned. Ready for new selection.")
 
 # ---------------------------------------------------------
+# PRECISION LOCK
+# ---------------------------------------------------------
+def apply_precision_lock():
+    locked = precision_lock_var.get()
+    for s in [tool_slider, link3_slider, link2_slider, link1_slider, base_slider, servo_test_slider]:
+        s.set_pointer_lock(locked)
+
+    if locked:
+        precision_lock_btn.config(text="Precision Lock: ON", bg=SUCCESS, fg=WHITE, activebackground=SUCCESS_BRIGHT)
+        precision_lock_status.config(text="Canvas drag disabled | Arrow buttons active", fg=SUCCESS)
+    else:
+        precision_lock_btn.config(text="Precision Lock: OFF", bg="#DDE5EF", fg=DARK_GRAY, activebackground="#EDF3F9")
+        precision_lock_status.config(text="Canvas drag enabled", fg=MID_GRAY)
+
+def toggle_precision_lock():
+    precision_lock_var.set(not precision_lock_var.get())
+    apply_precision_lock()
+
+# ---------------------------------------------------------
 # COMMANDS
 # ---------------------------------------------------------
 def slider_changed(_val=None):
@@ -895,7 +1202,6 @@ def slider_changed(_val=None):
     update_info_boxes()
 
 def servo_test_changed(_val=None):
-    servo_test_var.set(f"{servo_test_slider.get():3d}°")
     send_test_servo(servo_test_slider.get())
 
 def go_home():
@@ -914,51 +1220,13 @@ def actionA():
 
     start_action([
         {"display": "A", "move": [90, 150, 120, 90, 120], "pause_ms": 500},
-        
-        # go home (calibration)
         {"move": [90, 90, 90, 90, 90], "pause_ms": 500},
-
-# ---------------------------------------------------------
-# PNEUMATIC SEQUENCE
-# ---------------------------------------------------------   
-        # get pneumatic
-        # go up with pneumatic to avoid collision
-        # take pneumatic home
-        # take pneumatic back to base
-        # go home
-
-        # get pump
-        # take pump to home
-        # take pump to base
-        # go home
-# ---------------------------------------------------------
-# PUMP SEQUENCE
-# ---------------------------------------------------------        
-        # Robot moves to begin sequence 
         {"move": [90, 65, 132, 134, 90], "pause_ms": 600},
-        # Robot moves all links except Link 1 to position 
         {"move": [90, 65, 150, 134, 90], "pause_ms": 600},
-        # Lower TCP to near position and delay for aligning 
         {"move": [90, 114, 150, 134, 90], "pause_ms": 1000},
-        # Lower TCP 
         {"move": [90, 117, 150, 134, 90], "pause_ms": 1000},
-        # Magnet ON
         {"relay": "MAGNET", "state": "ON", "pause_ms": 100},
-        # Carry Pump Home
         {"move": [90, 90, 90, 90, 90], "pause_ms": 500},
-# ---------------------------------------------------------
-# GRIPPER SEQUENCE
-# ---------------------------------------------------------    
-        # get gripper
-        # take gripper home
-        # return gripper to base
-        # go home
-        
-        
-
-        #get the pump 
-        #
-
         {"display": "SMILE", "move": [90, 90, 90, 90, 90], "pause_ms": 0},
     ])
 
@@ -1032,7 +1300,6 @@ def select_gripper():
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
         {"move": [90, 65, 132, 136, 90], "pause_ms": 600},
-        # Base rotates and robot begins going to location
         {"move": [152, 65, 132, 136, 90], "pause_ms": 600},
         {"move": [152, 101, 145, 151, 90], "pause_ms": 1000},
         {"relay": "MAGNET", "state": "ON", "pause_ms": 600},
@@ -1046,19 +1313,12 @@ def select_pump():
         return
 
     start_action([
-        # Robot starts sequence by homing
         {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-        # Robot moves to begin sequence 
         {"move": [90, 65, 132, 134, 90], "pause_ms": 600},
-        # Robot moves all links except Link 1 to position 
         {"move": [90, 65, 150, 134, 90], "pause_ms": 600},
-        # Lower TCP to near position and delay for aligning 
         {"move": [90, 114, 150, 134, 90], "pause_ms": 1000},
-        # Lower TCP 
         {"move": [90, 117, 150, 134, 90], "pause_ms": 1000},
-        # Magnet ON
         {"relay": "MAGNET", "state": "ON", "pause_ms": 100},
-        # Robot Return Home
         {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
     ], on_done=lambda: mark_tool_attached("pump"))
 
@@ -1267,7 +1527,7 @@ slider_body = tk.Frame(slider_card, bg=PANEL_BG)
 slider_body.pack(fill="x", padx=12, pady=12)
 
 tool_slider = LimitedSlider(
-    slider_body, "Gripper",
+    slider_body, "Wrist",
     full_min=0, full_max=180,
     work_min=WORK_MIN["tool"], work_max=WORK_MAX["tool"],
     initial=90, command=slider_changed, width=500
@@ -1307,7 +1567,7 @@ base_slider = LimitedSlider(
 base_slider.pack(fill="x", pady=4)
 
 servo_test_slider = LimitedSlider(
-    slider_body, "Servo Test  (Pin 31)",
+    slider_body, "Gripper Tool",
     full_min=0, full_max=180,
     work_min=WORK_MIN["test"], work_max=WORK_MAX["test"],
     initial=90, command=servo_test_changed,
@@ -1317,7 +1577,36 @@ servo_test_slider = LimitedSlider(
 )
 servo_test_slider.pack(fill="x", pady=(8, 4))
 
-servo_test_var = tk.StringVar(value=" 90°")
+precision_row = tk.Frame(slider_body, bg=PANEL_BG)
+precision_row.pack(fill="x", pady=(8, 4))
+
+precision_lock_var = tk.BooleanVar(value=False)
+
+precision_lock_btn = tk.Button(
+    precision_row,
+    text="Precision Lock: OFF",
+    command=toggle_precision_lock,
+    bg="#DDE5EF",
+    fg=DARK_GRAY,
+    activebackground="#EDF3F9",
+    activeforeground=DARK_GRAY,
+    relief="raised",
+    bd=1,
+    font=SANS_B,
+    cursor="hand2",
+    padx=12,
+    pady=6
+)
+precision_lock_btn.pack(side="left")
+
+precision_lock_status = tk.Label(
+    precision_row,
+    text="Canvas drag enabled",
+    bg=PANEL_BG,
+    fg=MID_GRAY,
+    font=SANS_S
+)
+precision_lock_status.pack(side="left", padx=(10, 0))
 
 legend = tk.Label(
     slider_body,
@@ -1327,7 +1616,7 @@ legend = tk.Label(
     font=SANS_S,
     anchor="w"
 )
-legend.pack(fill="x", pady=(8, 0))
+legend.pack(fill="x", pady=(4, 0))
 
 # ---------------------------------------------------------
 # RIGHT WORKSPACE
@@ -1343,12 +1632,22 @@ env_var = tk.StringVar(value="Work Envelope: OFF")
 env_label = tk.Label(view_info, textvariable=env_var, bg=PANEL_BG, fg=ULTRAMARINE, font=SANS_H2)
 env_label.pack(side="left")
 
-canvas_wrap = tk.Frame(view_card, bg=PANEL_BG)
-canvas_wrap.pack(fill="both", expand=True, padx=12, pady=10)
+split_wrap = tk.Frame(view_card, bg=PANEL_BG)
+split_wrap.pack(fill="both", expand=True, padx=12, pady=10)
 
-arm = ArmCanvas(canvas_wrap)
+split_wrap.grid_columnconfigure(0, weight=3)
+split_wrap.grid_columnconfigure(1, weight=2)
+split_wrap.grid_rowconfigure(0, weight=1)
 
-overlay_wrap = tk.Frame(canvas_wrap, bg=PANEL_BG)
+workspace_left = tk.Frame(split_wrap, bg=PANEL_BG)
+workspace_left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+
+workspace_left_inner = tk.Frame(workspace_left, bg=PANEL_BG)
+workspace_left_inner.pack(fill="both", expand=True)
+
+arm = ArmCanvas(workspace_left_inner)
+
+overlay_wrap = tk.Frame(workspace_left_inner, bg=PANEL_BG)
 overlay_wrap.place(relx=1.0, y=10, x=-12, anchor="ne")
 
 info_box_style = {
@@ -1395,7 +1694,7 @@ link1_var = tk.StringVar()
 base_var  = tk.StringVar()
 
 for lbl, var in [
-    ("TOOL",   tool_var),
+    ("WRIST",  tool_var),
     ("LINK 3", link3_var),
     ("LINK 2", link2_var),
     ("LINK 1", link1_var),
@@ -1405,6 +1704,63 @@ for lbl, var in [
     row.pack(fill="x")
     tk.Label(row, text=f"{lbl}:", bg=WHITE, fg=DARK_GRAY, font=("Segoe UI", 8, "bold"), width=8, anchor="w").pack(side="left")
     tk.Label(row, textvariable=var, bg=WHITE, fg=DARK_GRAY, font=("Consolas", 8), width=6, anchor="e").pack(side="left")
+
+workspace_right = tk.Frame(split_wrap, bg=PANEL_BG)
+workspace_right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+
+live_card = tk.Frame(workspace_right, bg=WHITE, highlightbackground=BORDER, highlightthickness=1, bd=0)
+live_card.pack(fill="both", expand=True)
+
+live_top = tk.Frame(live_card, bg=WHITE)
+live_top.pack(fill="x", padx=10, pady=(10, 6))
+
+tk.Label(live_top, text="LIVE VIEW", bg=WHITE, fg=ULTRAMARINE, font=("Segoe UI", 10, "bold")).pack(side="left")
+
+camera_var = tk.StringVar(value="")
+camera_combo = ttk.Combobox(
+    live_top,
+    textvariable=camera_var,
+    state="readonly",
+    width=16,
+    style="Modern.TCombobox"
+)
+camera_combo.pack(side="right")
+
+live_body = tk.Frame(live_card, bg=WHITE)
+live_body.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+live_view = LiveViewPanel(live_body)
+root.after(100, lambda: live_view.draw_message("Press Refresh Cams"))
+
+live_controls = tk.Frame(live_card, bg=WHITE)
+live_controls.pack(fill="x", padx=10, pady=(0, 10))
+
+tk.Button(
+    live_controls, text="Refresh Cams", command=refresh_cameras,
+    bg=WHITE, fg=DARK_GRAY, activebackground=LIGHT_BLUE, activeforeground=DARK_GRAY,
+    relief="raised", bd=1, font=SANS, padx=10, pady=5
+).pack(side="left")
+
+tk.Button(
+    live_controls, text="Start", command=start_selected_camera,
+    bg=WHITE, fg=DARK_GRAY, activebackground=LIGHT_BLUE, activeforeground=DARK_GRAY,
+    relief="raised", bd=1, font=SANS, padx=10, pady=5
+).pack(side="left", padx=(6, 0))
+
+tk.Button(
+    live_controls, text="Stop", command=stop_selected_camera,
+    bg=WHITE, fg=DARK_GRAY, activebackground=LIGHT_BLUE, activeforeground=DARK_GRAY,
+    relief="raised", bd=1, font=SANS, padx=10, pady=5
+).pack(side="left", padx=(6, 0))
+
+live_status_var = tk.StringVar(value="Press Refresh Cams to detect webcams.")
+tk.Label(
+    live_controls,
+    textvariable=live_status_var,
+    bg=WHITE,
+    fg=MID_GRAY,
+    font=SANS_S
+).pack(side="right")
 
 bottom_controls = tk.Frame(view_card, bg=PANEL_BG)
 bottom_controls.pack(fill="x", padx=12, pady=(0, 8))
@@ -1419,7 +1775,7 @@ def set_view(name):
         "iso":   (-math.pi / 4, math.radians(28)),
     }
     arm.cam_theta, arm.cam_phi = presets[name]
-    arm.draw()
+    arm.reset_zoom()
 
 for lbl, key in [("Front", "front"), ("Side", "side"), ("Top", "top"), ("Iso", "iso")]:
     tk.Button(
@@ -1438,9 +1794,27 @@ tk.Button(
     relief="raised", bd=1, font=SANS, padx=12, pady=5
 ).pack(side="left", padx=(10, 0))
 
+tk.Button(
+    bottom_controls, text="Zoom -", command=arm.zoom_out,
+    bg=WHITE, fg=DARK_GRAY, activebackground=LIGHT_BLUE, activeforeground=DARK_GRAY,
+    relief="raised", bd=1, font=SANS, padx=12, pady=5
+).pack(side="left", padx=(10, 0))
+
+tk.Button(
+    bottom_controls, text="Zoom +", command=arm.zoom_in,
+    bg=WHITE, fg=DARK_GRAY, activebackground=LIGHT_BLUE, activeforeground=DARK_GRAY,
+    relief="raised", bd=1, font=SANS, padx=12, pady=5
+).pack(side="left", padx=3)
+
+tk.Button(
+    bottom_controls, text="Zoom Reset", command=arm.reset_zoom,
+    bg=WHITE, fg=DARK_GRAY, activebackground=LIGHT_BLUE, activeforeground=DARK_GRAY,
+    relief="raised", bd=1, font=SANS, padx=12, pady=5
+).pack(side="left", padx=3)
+
 tk.Label(
     bottom_controls,
-    text="Drag canvas to orbit",
+    text="Drag to orbit | Mouse wheel to zoom",
     bg=PANEL_BG,
     fg=LIGHT_GRAY,
     font=SANS_S
@@ -1534,11 +1908,31 @@ def info_loop():
     update_info_boxes()
     root.after(150, info_loop)
 
+def on_close():
+    try:
+        live_view.stop()
+    except Exception:
+        pass
+
+    try:
+        if ser and ser.is_open:
+            ser.close()
+    except Exception:
+        pass
+
+    root.destroy()
+
+root.protocol("WM_DELETE_WINDOW", on_close)
+
 update_pose([90, 90, 90, 90, 90], send_serial=False)
 servo_test_slider.set(90)
 servo_test_changed()
 update_tool_control_buttons()
 update_manual_mode_buttons()
+apply_precision_lock()
 info_loop()
+
+# Manual scan only is safer on macOS. Press Refresh Cams after launch.
+# root.after(500, refresh_cameras)
 
 root.mainloop()
