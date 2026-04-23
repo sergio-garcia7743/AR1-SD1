@@ -8,12 +8,15 @@ const int MATRIX_DIN = 11;
 const int MATRIX_CLK = 13;
 const int MATRIX_CS  = 12;
 
-// SERVOS
-const int S1_PIN = 26;
-const int S2_PIN = 27;
-const int S3_PIN = 28;
-const int S4_PIN = 29;
-const int S5_PIN = 30;
+// MAIN SERVOS
+const int S1_PIN = 26;   // Base
+const int S2_PIN = 27;   // Link 1
+const int S3_PIN = 28;   // Link 2
+const int S4_PIN = 29;   // Link 3
+const int S5_PIN = 30;   // Wrist
+
+// EXTRA SERVO
+const int S6_PIN = 31;   // Gripper Tool
 
 // RELAYS
 const int MAGNET_PIN   = 4;
@@ -24,15 +27,23 @@ const int VACUUM_PIN   = 3;
 LedControl lc = LedControl(MATRIX_DIN, MATRIX_CLK, MATRIX_CS, 1);
 
 // SERVOS
-Servo s1, s2, s3, s4, s5;
+Servo s1, s2, s3, s4, s5, s6;
 
+// Main arm pose
 int currentPos[5] = {90, 90, 90, 90, 90};
 int targetPos[5]  = {90, 90, 90, 90, 90};
 
-// Current real limits from your controller sketch
+// Main arm limits
 const int MIN_SERVO[5] = {0, 20, 10, 0, 0};
 const int MAX_SERVO[5] = {180, 160, 170, 180, 180};
 
+// Gripper tool servo limits
+int gripperToolCurrent = 90;
+int gripperToolTarget  = 90;
+const int GRIPPER_TOOL_MIN = 85;
+const int GRIPPER_TOOL_MAX = 95;
+
+// Motion timing
 const float STEP_SIZE = 1.0;
 const unsigned long STEP_DT = 45;
 unsigned long lastStepTime = 0;
@@ -44,8 +55,6 @@ String serialBuffer = "";
 
 // ============================================================
 // RELAY STATES
-// GUI can control these through serial commands if desired later.
-// For now they default OFF.
 // ============================================================
 bool magnetState = false;
 bool solenoidState = false;
@@ -96,7 +105,7 @@ byte letterC[8] = {
 };
 
 // ============================================================
-// SERVO WRITE
+// SERVO HELPERS
 // ============================================================
 void writeAllServos() {
   s1.write(currentPos[0]);
@@ -104,6 +113,22 @@ void writeAllServos() {
   s3.write(currentPos[2]);
   s4.write(currentPos[3]);
   s5.write(currentPos[4]);
+}
+
+void writeGripperTool() {
+  s6.write(gripperToolCurrent);
+}
+
+int clampServo(int idx, int val) {
+  if (val < MIN_SERVO[idx]) val = MIN_SERVO[idx];
+  if (val > MAX_SERVO[idx]) val = MAX_SERVO[idx];
+  return val;
+}
+
+int clampGripperTool(int val) {
+  if (val < GRIPPER_TOOL_MIN) val = GRIPPER_TOOL_MIN;
+  if (val > GRIPPER_TOOL_MAX) val = GRIPPER_TOOL_MAX;
+  return val;
 }
 
 // ============================================================
@@ -176,30 +201,24 @@ void displayText(String txt) {
 }
 
 // ============================================================
-// SERIAL PARSING
-// Supports:
-//   DISPLAY:A
-//   90,120,80,90,100
-// Order:
-//   S1,S2,S3,S4,S5
-//
-// Optional relay commands added:
-//   MAGNET:ON / MAGNET:OFF
-//   SOLENOID:ON / SOLENOID:OFF
-//   VACUUM:ON / VACUUM:OFF
+// RELAYS
 // ============================================================
-int clampServo(int idx, int val) {
-  if (val < MIN_SERVO[idx]) val = MIN_SERVO[idx];
-  if (val > MAX_SERVO[idx]) val = MAX_SERVO[idx];
-  return val;
-}
-
 void applyRelayStates() {
   digitalWrite(MAGNET_PIN,   magnetState   ? HIGH : LOW);
   digitalWrite(SOLENOID_PIN, solenoidState ? HIGH : LOW);
   digitalWrite(VACUUM_PIN,   vacuumState   ? HIGH : LOW);
 }
 
+// ============================================================
+// SERIAL PARSING
+// Supports:
+//   DISPLAY:A
+//   90,120,80,90,100
+//   TESTSERVO:90
+//   MAGNET:ON / MAGNET:OFF
+//   SOLENOID:ON / SOLENOID:OFF
+//   VACUUM:ON / VACUUM:OFF
+// ============================================================
 void parseServoLine(String data) {
   int c1 = data.indexOf(',');
   int c2 = data.indexOf(',', c1 + 1);
@@ -221,6 +240,12 @@ void handleCommand(String cmd) {
 
   if (cmd.startsWith("DISPLAY:")) {
     displayText(cmd.substring(8));
+    return;
+  }
+
+  if (cmd.startsWith("TESTSERVO:")) {
+    int val = cmd.substring(10).toInt();
+    gripperToolTarget = clampGripperTool(val);
     return;
   }
 
@@ -263,12 +288,13 @@ void setup() {
   lc.clearDisplay(0);
   idleAnimReset();
 
-  // Startup at 90, matching your previous behavior
+  // Startup at 90
   s1.attach(S1_PIN); s1.write(90);
   s2.attach(S2_PIN); s2.write(90);
   s3.attach(S3_PIN); s3.write(90);
   s4.attach(S4_PIN); s4.write(90);
   s5.attach(S5_PIN); s5.write(90);
+  s6.attach(S6_PIN); s6.write(90);
 
   delay(1000);
 
@@ -280,6 +306,9 @@ void setup() {
   solenoidState = false;
   vacuumState = false;
   applyRelayStates();
+
+  writeAllServos();
+  writeGripperTool();
 }
 
 // ============================================================
@@ -292,23 +321,39 @@ void loop() {
   if (millis() - lastStepTime >= STEP_DT) {
     lastStepTime = millis();
 
-    bool updated = false;
+    bool updatedMain = false;
+    bool updatedTool = false;
 
     for (int i = 0; i < 5; i++) {
       if (currentPos[i] < targetPos[i]) {
         currentPos[i] += STEP_SIZE;
         if (currentPos[i] > targetPos[i]) currentPos[i] = targetPos[i];
-        updated = true;
+        updatedMain = true;
       }
       else if (currentPos[i] > targetPos[i]) {
         currentPos[i] -= STEP_SIZE;
         if (currentPos[i] < targetPos[i]) currentPos[i] = targetPos[i];
-        updated = true;
+        updatedMain = true;
       }
     }
 
-    if (updated) {
+    if (gripperToolCurrent < gripperToolTarget) {
+      gripperToolCurrent += STEP_SIZE;
+      if (gripperToolCurrent > gripperToolTarget) gripperToolCurrent = gripperToolTarget;
+      updatedTool = true;
+    }
+    else if (gripperToolCurrent > gripperToolTarget) {
+      gripperToolCurrent -= STEP_SIZE;
+      if (gripperToolCurrent < gripperToolTarget) gripperToolCurrent = gripperToolTarget;
+      updatedTool = true;
+    }
+
+    if (updatedMain) {
       writeAllServos();
+    }
+
+    if (updatedTool) {
+      writeGripperTool();
     }
   }
 }
