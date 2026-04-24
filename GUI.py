@@ -1283,6 +1283,7 @@ def select_pneumatic():
         {"move": [90, 90, 90, 90, 90], "pause_ms": 4000},
         {"move": [20, 90, 90, 90, 87], "pause_ms": 1000},
         {"move": [20, 90, 120, 140, 87], "pause_ms": 3000},
+        {"move": [20, 112, 120, 140, 87], "pause_ms": 3000}, #MIDWAY
         {"move": [20, 112, 136, 150, 87], "pause_ms": 3000}, #LATCH
         {"relay": "MAGNET", "state": "ON", "pause_ms": 2000},
         {"move": [20, 112, 136, 150, 87], "pause_ms": 3000}, #LATCH
@@ -1317,6 +1318,7 @@ def return_active_tool():
      {"move": [90, 90, 90, 90, 90], "pause_ms": 4000},
         {"move": [20, 90, 90, 90, 87], "pause_ms": 1000},
         {"move": [20, 90, 120, 140, 87], "pause_ms": 3000},
+        {"move": [20, 112, 120, 140, 87], "pause_ms": 3000}, #MIDWAY
         {"move": [20, 112, 136, 150, 87], "pause_ms": 3000}, #LATCH
         {"relay": "MAGNET", "state": "OFF", "pause_ms": 2000},
         {"move": [20, 112, 136, 150, 87], "pause_ms": 3000}, #LATCH
