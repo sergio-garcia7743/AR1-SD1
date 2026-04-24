@@ -1251,12 +1251,13 @@ def select_gripper():
         return
 
     start_action([
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
-        {"move": [152, 90, 90, 90, 90], "pause_ms": 600},
-        {"move": [152, 101, 145, 152, 82], "pause_ms": 600}, #latch
-        {"relay": "MAGNET", "state": "ON", "pause_ms": 1000},
-        {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, 
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, 
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #start home
+        {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #rotate base
+        {"move": [152, 101, 145, 152, 82], "pause_ms": 2000}, #get to latch position
+        {"relay": "MAGNET", "state": "ON", "pause_ms": 1000}, #turn on magnet
+        {"move": [152, 101, 145, 152, 82], "pause_ms": 2000}, #wait at latch position
+        {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #straighten out
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #home
     ], on_done=lambda: mark_tool_attached("gripper"))
 
 def select_pump():
@@ -1294,12 +1295,13 @@ def return_active_tool():
 
     if active_tool == "gripper":
         seq = [
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
-        {"move": [152, 90, 90, 90, 90], "pause_ms": 600},
-        {"move": [152, 101, 145, 152, 82], "pause_ms": 1000}, #latch
-        {"relay": "MAGNET", "state": "OFF", "pause_ms": 1000},
-        {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, 
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 600},  
+       {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #start home
+        {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #rotate base
+        {"move": [152, 101, 145, 152, 82], "pause_ms": 2000}, #get to latch position
+        {"relay": "MAGNET", "state": "OFF", "pause_ms": 1000}, #turn on magnet
+        {"move": [152, 101, 145, 152, 82], "pause_ms": 2000}, #wait at latch position
+        {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #straighten out
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #home
         ]
     elif active_tool == "pump":
         seq = [
