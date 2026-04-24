@@ -1285,10 +1285,12 @@ def select_pneumatic():
         {"move": [90, 65, 132, 136, 90], "pause_ms": 600},
         {"move": [22, 65, 132, 136, 90], "pause_ms": 600},
         {"move": [20, 107, 139, 150, 88], "pause_ms": 1200},
-        {"relay": "MAGNET", "state": "ON", "pause_ms": 600},
-        {"move": [20, 111, 139, 150, 88], "pause_ms": 1200},
+        {"move": [20, 111, 139, 150, 88], "pause_ms": 2000},
+        {"relay": "MAGNET", "state": "ON"},
+        {"move": [20, 111, 139, 150, 88], "pause_ms": 2000},
         {"move": [20, 60, 147, 128, 90], "pause_ms": 600},
         {"move": [90, 60, 147, 128, 90], "pause_ms": 600},
+        {"move": [90, 90, 90, 90, 90]},
     ], on_done=lambda: mark_tool_attached("pneumatic"))
 
 def return_active_tool():
@@ -1315,9 +1317,16 @@ def return_active_tool():
         ]
     elif active_tool == "pneumatic":
         seq = [
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 2000},
+        {"move": [90, 65, 132, 136, 90], "pause_ms": 2000},
+        {"move": [22, 65, 132, 136, 90], "pause_ms": 2000},
+        {"move": [20, 107, 139, 150, 88], "pause_ms": 2000},
+        {"move": [20, 111, 139, 150, 88], "pause_ms": 2000},
+        {"relay": "MAGNET", "state": "ON"},
+        {"move": [20, 111, 139, 150, 88], "pause_ms": 2000},
+        {"move": [20, 60, 147, 128, 90], "pause_ms": 2000},
+        {"move": [90, 60, 147, 128, 90], "pause_ms": 2000},
+        {"move": [90, 90, 90, 90, 90]},
         ]
     else:
         return
