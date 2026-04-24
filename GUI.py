@@ -1280,13 +1280,13 @@ def select_pneumatic():
         return
 
     start_action([
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
-        {"move": [90, 65, 132, 136, 90], "pause_ms": 1000}, #STRAIGHT BACK
-        {"move": [21, 65, 132, 136, 87], "pause_ms": 1000}, #SAME POSE BEFORE, ROTATE
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 4000},
+        {"move": [21, 90, 90, 90, 87], "pause_ms": 1000},
+        {"move": [21, 90, 140, 145, 87], "pause_ms": 1000},
         {"move": [21, 109, 140, 145, 87], "pause_ms": 3000}, #LATCH
-        {"relay": "MAGNET", "state": "ON"},
+        {"relay": "MAGNET", "state": "ON", "pause_ms": 2000},
         {"move": [21, 109, 140, 145, 87], "pause_ms": 2000}, #LATCH
-        {"move": [21, 65, 132, 136, 87], "pause_ms": 1000}, #SAME POSE BEFORE, ROTATE
+        {"move": [21, 90, 90, 90, 90], "pause_ms": 2000}, #PULL BACK
         {"move": [90, 90, 90, 90, 90]},
     ], on_done=lambda: mark_tool_attached("pneumatic"))
 
@@ -1314,13 +1314,13 @@ def return_active_tool():
         ]
     elif active_tool == "pneumatic":
         seq = [
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
-        {"move": [90, 65, 132, 136, 90], "pause_ms": 2000}, #STRAIGHT BACK
-        {"move": [21, 65, 132, 136, 87], "pause_ms": 2000}, #SAME POSE BEFORE, ROTATE
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 4000},
+        {"move": [21, 90, 90, 90, 87], "pause_ms": 1000},
+        {"move": [21, 90, 140, 145, 87], "pause_ms": 1000},
         {"move": [21, 109, 140, 145, 87], "pause_ms": 3000}, #LATCH
-        {"relay": "MAGNET", "state": "OFF"},
+        {"relay": "MAGNET", "state": "OFF", "pause_ms": 2000},
         {"move": [21, 109, 140, 145, 87], "pause_ms": 2000}, #LATCH
-        {"move": [21, 65, 132, 136, 87], "pause_ms": 1000}, #SAME POSE BEFORE, ROTATE
+        {"move": [21, 90, 90, 90, 90], "pause_ms": 2000}, #PULL BACK
         {"move": [90, 90, 90, 90, 90]},
         ]
     else:
