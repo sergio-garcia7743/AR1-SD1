@@ -68,7 +68,7 @@ LINKS = [70, 80, 60, 40, 20]
 DEFAULT_ANGLE = 90
 
 WORK_MIN = {
-    "base":  20,
+    "base":  10,
     "link1": 30,
     "link2": 25,
     "link3": 25,
@@ -76,7 +76,7 @@ WORK_MIN = {
     "test":  85,
 }
 WORK_MAX = {
-    "base":  160,
+    "base":  170,
     "link1": 150,
     "link2": 155,
     "link3": 155,
@@ -1282,9 +1282,9 @@ def select_pneumatic():
 
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
-        {"move": [90, 65, 132, 136, 90], "pause_ms": 600},
-        {"move": [22, 65, 132, 136, 90], "pause_ms": 600},
-        {"move": [20, 107, 139, 150, 88], "pause_ms": 1200},
+        {"move": [90, 65, 132, 136, 90], "pause_ms": 600}, #STRAIGHT BACK
+        {"move": [22, 65, 132, 136, 90], "pause_ms": 600}, #SAME POSE BEFORE, ROTATE
+        {"move": [20, 107, 139, 150, 88], "pause_ms": 1200}, #HOVER
         {"move": [20, 111, 139, 150, 88], "pause_ms": 2000},
         {"relay": "MAGNET", "state": "ON"},
         {"move": [20, 111, 139, 150, 88], "pause_ms": 2000},
@@ -1322,7 +1322,7 @@ def return_active_tool():
         {"move": [22, 65, 132, 136, 90], "pause_ms": 2000},
         {"move": [20, 107, 139, 150, 88], "pause_ms": 2000},
         {"move": [20, 111, 139, 150, 88], "pause_ms": 2000},
-        {"relay": "MAGNET", "state": "ON"},
+        {"relay": "MAGNET", "state": "OFF"},
         {"move": [20, 111, 139, 150, 88], "pause_ms": 2000},
         {"move": [20, 60, 147, 128, 90], "pause_ms": 2000},
         {"move": [90, 60, 147, 128, 90], "pause_ms": 2000},
