@@ -1181,9 +1181,9 @@ def toggle_precision_lock():
     precision_lock_var.set(not precision_lock_var.get())
     apply_precision_lock()
 
-# ---------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------
 # COMMANDS
-# ---------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------
 def slider_changed(_val=None):
     global ready
     ready = True
@@ -1219,14 +1219,7 @@ def actionA():
         return
 
     start_action([
-        {"display": "A", "move": [90, 150, 120, 90, 120], "pause_ms": 500},
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 500},
-        {"move": [90, 65, 132, 134, 90], "pause_ms": 600},
-        {"move": [90, 65, 150, 134, 90], "pause_ms": 600},
-        {"move": [90, 114, 150, 134, 90], "pause_ms": 1000},
-        {"move": [90, 117, 150, 134, 90], "pause_ms": 1000},
-        {"relay": "MAGNET", "state": "ON", "pause_ms": 100},
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 500},
+        {"display": "A", "move": [90, 90, 90, 90, 90], "pause_ms": 500},
         {"display": "SMILE", "move": [90, 90, 90, 90, 90], "pause_ms": 0},
     ])
 
@@ -1236,19 +1229,7 @@ def actionB():
         return
 
     seq = [
-        {"display": "B", "move": [90, 90, 152, 90, 130], "pause_ms": 500},
-        {"move": [115, 90, 152, 90, 130], "pause_ms": 500},
-        {"move": [115, 90, 152, 90, 50],  "pause_ms": 500},
-        {"move": [60, 90, 152, 90, 50],   "pause_ms": 500},
-        {"move": [60, 90, 152, 90, 130],  "pause_ms": 500},
-        {"move": [115, 90, 152, 90, 130], "pause_ms": 500},
-        {"move": [115, 90, 152, 90, 50],  "pause_ms": 500},
-        {"move": [60, 90, 152, 90, 50],   "pause_ms": 500},
-        {"move": [60, 90, 152, 90, 130],  "pause_ms": 500},
-        {"move": [115, 90, 152, 90, 130], "pause_ms": 500},
-        {"move": [115, 90, 152, 90, 50],  "pause_ms": 500},
-        {"move": [60, 90, 152, 90, 50],   "pause_ms": 500},
-        {"move": [60, 90, 90, 90, 90],    "pause_ms": 0},
+        {"display": "B", "move": [90, 90, 90, 90, 90], "pause_ms": 500},
         {"display": "SMILE", "move": [90, 90, 90, 90, 90], "pause_ms": 0},
     ]
     start_action(seq)
@@ -1259,53 +1240,22 @@ def actionC():
         return
 
     seq = [
-        {"display": "C", "move": [90, 134, 151, 90, 125], "pause_ms": 0},
-        {"move": [115, 134, 151, 90, 125], "pause_ms": 0},
-        {"move": [115, 134, 115, 90, 77],  "pause_ms": 0},
-        {"move": [115, 134, 115, 90, 77],  "pause_ms": 0},
-        {"move": [90, 134, 115, 90, 77],   "pause_ms": 0},
-
-        {"move": [90, 134, 151, 90, 125], "pause_ms": 0},
-        {"move": [115, 134, 151, 90, 125], "pause_ms": 0},
-        {"move": [115, 134, 115, 90, 77],  "pause_ms": 0},
-        {"move": [115, 134, 115, 90, 77],  "pause_ms": 0},
-        {"move": [90, 134, 115, 90, 77],   "pause_ms": 0},
-
-        {"move": [90, 134, 151, 90, 125], "pause_ms": 0},
-        {"move": [115, 134, 151, 90, 125], "pause_ms": 0},
-        {"move": [115, 134, 115, 90, 77],  "pause_ms": 0},
-        {"move": [115, 134, 115, 90, 77],  "pause_ms": 0},
-        {"move": [90, 134, 115, 90, 77],   "pause_ms": 0},
-
-        {"move": [90, 134, 151, 90, 125], "pause_ms": 0},
-        {"move": [115, 134, 151, 90, 125], "pause_ms": 0},
-        {"move": [115, 134, 115, 90, 77],  "pause_ms": 0},
-        {"move": [115, 134, 115, 90, 77],  "pause_ms": 0},
-        {"move": [90, 134, 115, 90, 77],   "pause_ms": 0},
-
-        {"move": [90, 120, 140, 90, 90], "pause_ms": 0},
-        {"move": [90, 120, 155, 90, 90], "pause_ms": 0},
-        {"move": [90, 120, 140, 90, 90], "pause_ms": 0},
-        {"move": [90, 120, 155, 90, 90], "pause_ms": 0},
-        {"move": [90, 120, 140, 90, 90], "pause_ms": 0},
-        {"move": [90, 120, 155, 90, 90], "pause_ms": 500},
+        {"display": "C", "move": [90, 90, 90, 90, 90], "pause_ms": 0},
         {"display": "SMILE", "move": [90, 90, 90, 90, 90], "pause_ms": 0},
     ]
     start_action(seq)
 
+# [base, link1, link2, link3, wrist]
 def select_gripper():
     if is_animating or tool_attached:
         return
 
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
-        {"move": [90, 65, 132, 136, 90], "pause_ms": 600},
-        {"move": [152, 65, 132, 136, 90], "pause_ms": 600},
-        {"move": [152, 101, 145, 151, 90], "pause_ms": 1000},
-        {"relay": "MAGNET", "state": "ON", "pause_ms": 600},
-        {"move": [152, 103, 145, 151, 90], "pause_ms": 1200},
-        {"move": [152, 60, 142, 135, 90], "pause_ms": 600},
-        {"move": [90, 60, 142, 135, 90], "pause_ms": 600},
+        {"move": [152, 97, 147, 152, 82], "pause_ms": 3000}, #hover
+        {"move": [152, 101, 145, 152, 82], "pause_ms": 600}, #latch
+        {"relay": "MAGNET", "state": "ON", "pause_ms": 1000},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, 
     ], on_done=lambda: mark_tool_attached("gripper"))
 
 def select_pump():
@@ -1343,9 +1293,11 @@ def return_active_tool():
 
     if active_tool == "gripper":
         seq = [
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600},
+        {"move": [152, 97, 147, 152, 82], "pause_ms": 3000}, #hover
+        {"move": [152, 101, 145, 152, 82], "pause_ms": 600}, #latch
+        {"relay": "MAGNET", "state": "OFF", "pause_ms": 1000},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, 
         ]
     elif active_tool == "pump":
         seq = [
