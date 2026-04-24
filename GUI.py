@@ -1255,7 +1255,6 @@ def select_gripper():
         {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #rotate base
         {"move": [152, 56, 120, 120, 85], "pause_ms": 2000}, #STRAIGHTEN
         {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
-        #{"move": [152, 56, 144, 152, 80], "pause_ms": 2000}, #PULL BACK GRIPPER
         {"relay": "MAGNET", "state": "ON"}, #turn on magnet
         {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
         {"move": [152, 56, 144, 152, 80], "pause_ms": 2000}, #STRAIGHTEN
@@ -1283,14 +1282,11 @@ def select_pneumatic():
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
         {"move": [90, 65, 132, 136, 90], "pause_ms": 1000}, #STRAIGHT BACK
-        {"move": [21, 65, 132, 136, 90], "pause_ms": 1000}, #SAME POSE BEFORE, ROTATE
-        {"move": [21, 107, 135, 140, 87], "pause_ms": 1200}, #HOVER
+        {"move": [21, 65, 132, 136, 87], "pause_ms": 1000}, #SAME POSE BEFORE, ROTATE
         {"move": [21, 109, 140, 145, 87], "pause_ms": 3000}, #LATCH
         {"relay": "MAGNET", "state": "ON"},
         {"move": [21, 109, 140, 145, 87], "pause_ms": 2000}, #LATCH
-        {"move": [21, 107, 135, 140, 87], "pause_ms": 1200}, #HOVER
-        {"move": [21, 65, 132, 136, 90], "pause_ms": 1000}, #SAME POSE BEFORE, ROTATE
-        {"move": [90, 65, 132, 136, 90], "pause_ms": 1000}, #STRAIGHT BACK
+        {"move": [21, 65, 132, 136, 87], "pause_ms": 1000}, #SAME POSE BEFORE, ROTATE
         {"move": [90, 90, 90, 90, 90]},
     ], on_done=lambda: mark_tool_attached("pneumatic"))
 
@@ -1318,15 +1314,13 @@ def return_active_tool():
         ]
     elif active_tool == "pneumatic":
         seq = [
-         {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
-        {"move": [90, 65, 132, 136, 90], "pause_ms": 1000}, #STRAIGHT BACK
-        {"move": [21, 65, 132, 136, 90], "pause_ms": 1000}, #SAME POSE BEFORE, ROTATE
-        {"move": [21, 107, 135, 140, 87], "pause_ms": 1200}, #HOVER
-        {"move": [21, 109, 140, 145, 87], "pause_ms": 2000}, #LATCH
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
+        {"move": [90, 65, 132, 136, 90], "pause_ms": 2000}, #STRAIGHT BACK
+        {"move": [21, 65, 132, 136, 87], "pause_ms": 2000}, #SAME POSE BEFORE, ROTATE
+        {"move": [21, 109, 140, 145, 87], "pause_ms": 3000}, #LATCH
         {"relay": "MAGNET", "state": "OFF"},
         {"move": [21, 109, 140, 145, 87], "pause_ms": 2000}, #LATCH
-        {"move": [21, 65, 132, 136, 90], "pause_ms": 1000}, #SAME POSE BEFORE, ROTATE
-        {"move": [90, 65, 132, 136, 90], "pause_ms": 1000}, #STRAIGHT BACK
+        {"move": [21, 65, 132, 136, 87], "pause_ms": 1000}, #SAME POSE BEFORE, ROTATE
         {"move": [90, 90, 90, 90, 90]},
         ]
     else:
