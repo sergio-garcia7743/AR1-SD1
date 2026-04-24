@@ -1253,10 +1253,12 @@ def select_gripper():
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #start home
         {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #rotate base
-        {"move": [152, 101, 145, 152, 82], "pause_ms": 2000}, #get to latch position
-        {"relay": "MAGNET", "state": "ON", "pause_ms": 1000}, #turn on magnet
-        {"move": [152, 101, 145, 152, 82], "pause_ms": 2000}, #wait at latch position
-        {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #straighten out
+        {"move": [152, 56, 120, 120, 85], "pause_ms": 2000}, #STRAIGHTEN
+        {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
+        #{"move": [152, 56, 144, 152, 80], "pause_ms": 2000}, #PULL BACK GRIPPER
+        {"relay": "MAGNET", "state": "ON"}, #turn on magnet
+        {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
+        {"move": [152, 56, 144, 152, 80], "pause_ms": 2000}, #STRAIGHTEN
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #home
     ], on_done=lambda: mark_tool_attached("gripper"))
 
@@ -1295,12 +1297,14 @@ def return_active_tool():
 
     if active_tool == "gripper":
         seq = [
-       {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #start home
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #start home
         {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #rotate base
-        {"move": [152, 101, 145, 152, 82], "pause_ms": 2000}, #get to latch position
-        {"relay": "MAGNET", "state": "OFF", "pause_ms": 1000}, #turn on magnet
-        {"move": [152, 101, 145, 152, 82], "pause_ms": 2000}, #wait at latch position
-        {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #straighten out
+        {"move": [152, 56, 120, 120, 85], "pause_ms": 2000}, #STRAIGHTEN
+        {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
+        #{"move": [152, 56, 144, 152, 80], "pause_ms": 2000}, #PULL BACK GRIPPER
+        {"relay": "MAGNET", "state": "OFF"}, #turn on magnet
+        {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
+        {"move": [152, 56, 144, 152, 80], "pause_ms": 2000}, #STRAIGHTEN
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #home
         ]
     elif active_tool == "pump":
