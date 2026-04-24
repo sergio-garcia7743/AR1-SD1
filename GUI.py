@@ -1281,8 +1281,7 @@ def select_pneumatic():
 
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 3000},
-        {"move": [20, 90, 90, 90, 87], "pause_ms": 2000},
-        {"move": [20, 90, 136, 150, 87], "pause_ms": 3000},
+        {"move": [20, 90, 90, 90, 90], "pause_ms": 3000},
         {"move": [20, 112, 136, 150, 87], "pause_ms": 3000}, #LATCH
         {"relay": "MAGNET", "state": "ON", "pause_ms": 2000},
         {"move": [20, 112, 136, 150, 87], "pause_ms": 3000}, #LATCH
