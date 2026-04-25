@@ -11,7 +11,7 @@ const int MATRIX_CS  = 12;
 // MAIN SERVOS
 const int S1_PIN = 26;   // Base
 const int S2_PIN = 27;   // Link 1
-const int S3_PIN = 28;   // Link 2
+const int S3_PIN = 32;   // Link 2
 const int S4_PIN = 29;   // Link 3
 const int S5_PIN = 30;   // Wrist
 
