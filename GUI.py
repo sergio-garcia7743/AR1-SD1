@@ -5,6 +5,7 @@ import serial.tools.list_ports
 import time
 import math
 import threading
+import platform
 
 import cv2
 from PIL import Image, ImageTk
@@ -648,42 +649,91 @@ class LiveViewPanel:
         if top and top.winfo_exists():
             self.after_id = top.after(delay_ms, callback)
 
-    def scan_cameras(self, max_index=1):
+    def _camera_backends(self):
+        """
+        Pick the correct OpenCV camera backend by operating system.
+        macOS uses AVFoundation, Windows usually works best with DirectShow,
+        and Linux typically uses V4L2.
+        """
+        system = platform.system()
+
+        if system == "Windows":
+            return [
+                ("DirectShow", cv2.CAP_DSHOW),
+                ("MSMF", cv2.CAP_MSMF),
+                ("Default", cv2.CAP_ANY),
+            ]
+        elif system == "Darwin":
+            return [
+                ("AVFoundation", cv2.CAP_AVFOUNDATION),
+                ("Default", cv2.CAP_ANY),
+            ]
+        else:
+            return [
+                ("V4L2", cv2.CAP_V4L2),
+                ("Default", cv2.CAP_ANY),
+            ]
+
+    def scan_cameras(self, max_index=5):
         found = []
+
         for i in range(max_index + 1):
-            cap = None
-            try:
-                cap = cv2.VideoCapture(i, cv2.CAP_AVFOUNDATION)
-                if cap is not None and cap.isOpened():
-                    found.append(i)
-            except Exception:
-                pass
-            finally:
-                if cap is not None:
-                    try:
-                        cap.release()
-                    except Exception:
-                        pass
+            for backend_name, backend in self._camera_backends():
+                cap = None
+                try:
+                    cap = cv2.VideoCapture(i, backend)
+
+                    if cap is not None and cap.isOpened():
+                        ok, frame = cap.read()
+
+                        if ok and frame is not None:
+                            found.append(i)
+                            break
+
+                except Exception:
+                    pass
+
+                finally:
+                    if cap is not None:
+                        try:
+                            cap.release()
+                        except Exception:
+                            pass
+
         return found
 
     def start(self, cam_index):
         self.stop()
 
-        try:
-            self.cap = cv2.VideoCapture(cam_index, cv2.CAP_AVFOUNDATION)
-        except Exception:
-            self.cap = None
+        for backend_name, backend in self._camera_backends():
+            cap = None
+            try:
+                cap = cv2.VideoCapture(cam_index, backend)
 
-        if not self.cap or not self.cap.isOpened():
-            self.current_index = None
-            self.running = False
-            self.draw_message("Unable to open selected webcam")
-            return False
+                if cap is not None and cap.isOpened():
+                    ok, frame = cap.read()
 
-        self.current_index = cam_index
-        self.running = True
-        self._schedule_after(50, self._update_frame)
-        return True
+                    if ok and frame is not None:
+                        self.cap = cap
+                        self.current_index = cam_index
+                        self.running = True
+                        self._schedule_after(50, self._update_frame)
+                        return True
+
+                if cap is not None:
+                    cap.release()
+
+            except Exception:
+                if cap is not None:
+                    try:
+                        cap.release()
+                    except Exception:
+                        pass
+
+        self.current_index = None
+        self.running = False
+        self.draw_message("Unable to open selected webcam")
+        return False
 
     def stop(self):
         self.running = False
@@ -864,7 +914,7 @@ def refresh_cameras():
     live_status_var.set("Scanning cameras...")
 
     def _scan():
-        cams = live_view.scan_cameras(max_index=1)
+        cams = live_view.scan_cameras(max_index=5)
         labels = [f"Camera {i}" for i in cams]
 
         def _update():
