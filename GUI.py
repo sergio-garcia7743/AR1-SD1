@@ -1278,12 +1278,12 @@ def actionA():
         #[base, link1, link2, link3, wrist]
         #TESTSERVO:90
         #Gripper Tool Selection Sequence-------------------------------------------------------------------------
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000}, #start home
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #start home
         {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #rotate base
-        {"move": [152, 56, 120, 120, 85], "pause_ms": 2000}, #STRAIGHTEN
-        {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
+        {"move": [152, 56, 120, 120, 85]}, #STRAIGHTEN
+        {"move": [152, 103, 144, 152, 80], "pause_ms": 2000}, #get to latch position
         {"relay": "MAGNET", "state": "ON"}, #turn on magnet
-        {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
+        {"move": [152, 103, 144, 152, 80], "pause_ms": 2000}, #get to latch position
         {"move": [152, 56, 144, 152, 80], "pause_ms": 2000}, #STRAIGHTEN
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #home
         #Sequence end--------------------------------------------------------------------------------------------
