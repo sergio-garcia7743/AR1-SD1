@@ -1278,7 +1278,7 @@ def actionA():
         #[base, link1, link2, link3, wrist]
         #TESTSERVO:90
         #Gripper Tool Selection Sequence-------------------------------------------------------------------------
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #start home
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000}, #start home
         {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #rotate base
         {"move": [152, 56, 120, 120, 85], "pause_ms": 2000}, #STRAIGHTEN
         {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
@@ -1288,27 +1288,30 @@ def actionA():
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #home
         #Sequence end--------------------------------------------------------------------------------------------
 
-        # Pick up gripper above
+    # Pick up gripper above
     # Start at home
     {"move": [90, 90, 90, 90, 90], "pause_ms": 1000},
     # Open gripper
-    {"test_servo": 45, "pause_ms": 500},
+    {"test_servo": 45, "pause_ms": 5000},
     # Acquire target
+    {"move": [106, 95, 155, 50, 90], "pause_ms": 2000},
     {"move": [106, 119, 155, 50, 90], "pause_ms": 2000},
     # Close gripper
-    {"test_servo": 70, "pause_ms": 2000},
+    {"test_servo": 64, "pause_ms": 5000},
     # Pull up target
-    {"move": [106, 90, 120, 50, 90], "pause_ms": 2000},
+    {"move": [106,110,150,50,90]}, 
+    {"move": [106,90,100,50,90]}, 
     # Move base left to drop-off
-    {"move": [74, 90, 120, 50, 90], "pause_ms": 2000},
+    {"move": [74, 90, 100, 50, 90], "pause_ms": 2000},
+    {"move": [74, 114, 148, 50, 90], "pause_ms": 2000},
     # Lower and wait for target to stabilize
     {"move": [74, 119, 155, 50, 90], "pause_ms": 4000},
     # Open gripper / drop target
-    {"test_servo": 45, "pause_ms": 2000},
+    {"test_servo": 45, "pause_ms": 5000},
     # Move arm up
     {"move": [74, 95, 90, 90, 90], "pause_ms": 2000},
     # Return home
-    {"test_servo": 90, "pause_ms": 2000},
+    {"test_servo": 90, "pause_ms": 5000},
     {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
     
     # Turn off magnet
