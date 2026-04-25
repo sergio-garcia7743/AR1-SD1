@@ -40,7 +40,7 @@ const int MAX_SERVO[5] = {180, 160, 170, 180, 180};
 // Gripper tool servo limits
 int gripperToolCurrent = 90;
 int gripperToolTarget  = 90;
-const int GRIPPER_TOOL_MIN = 85;
+const int GRIPPER_TOOL_MIN = 35;
 const int GRIPPER_TOOL_MAX = 95;
 
 // Motion timing
