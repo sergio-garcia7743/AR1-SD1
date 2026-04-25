@@ -1274,7 +1274,7 @@ def select_pump():
         {"relay": "MAGNET", "state": "ON", "pause_ms": 100},
         {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
     ], on_done=lambda: mark_tool_attached("pump"))
-
+########################################################################################PNEUMATIC PICKUP SEQUENCE
 def select_pneumatic():
     if is_animating or tool_attached:
         return
@@ -1282,10 +1282,11 @@ def select_pneumatic():
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 3000},
         {"move": [20, 90, 90, 90, 90], "pause_ms": 3000},
-        {"move": [20, 112, 136, 150, 87], "pause_ms": 3000}, #LATCH
+        {"move": [20, 70, 139, 149, 87], "pause_ms": 3000}, #
+        {"move": [20, 112, 139, 149, 87], "pause_ms": 3000}, #LATCH
         {"relay": "MAGNET", "state": "ON", "pause_ms": 2000},
-        {"move": [20, 112, 136, 150, 87], "pause_ms": 3000}, #LATCH
-        {"move": [20, 90, 130, 150, 87], "pause_ms": 2000}, #PULL BACK
+        {"move": [20, 112, 139, 149, 87], "pause_ms": 3000}, #LATCH
+        {"move": [20, 108, 130, 149, 87], "pause_ms": 2000}, #PULL BACK
         {"move": [90, 90, 90, 90, 90]},
     ], on_done=lambda: mark_tool_attached("pneumatic"))
 
@@ -1313,14 +1314,13 @@ def return_active_tool():
         ]
     elif active_tool == "pneumatic":
         seq = [
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 4000},
-        {"move": [20, 90, 90, 90, 87], "pause_ms": 1000},
-        {"move": [20, 90, 120, 140, 87], "pause_ms": 3000},
-        {"move": [20, 95, 136, 150, 87], "pause_ms": 3000}, #MIDWAY
-        {"move": [20, 112, 136, 150, 87], "pause_ms": 3000}, #LATCH
-        {"relay": "MAGNET", "state": "ON", "pause_ms": 2000},
-        {"move": [20, 112, 136, 150, 87], "pause_ms": 3000}, #LATCH
-        {"move": [20, 90, 130, 150, 87], "pause_ms": 2000}, #PULL BACK
+     {"move": [90, 90, 90, 90, 90], "pause_ms": 3000},
+        {"move": [20, 90, 90, 90, 90], "pause_ms": 3000},
+        {"move": [20, 70, 139, 149, 87], "pause_ms": 3000}, #
+        {"move": [20, 112, 139, 149, 87], "pause_ms": 3000}, #LATCH
+        {"relay": "MAGNET", "state": "OFF", "pause_ms": 2000},
+        {"move": [20, 112, 139, 149, 87], "pause_ms": 3000}, #LATCH
+        {"move": [20, 95, 139, 149, 87], "pause_ms": 2000}, #PULL BACK
         {"move": [90, 90, 90, 90, 90]},
         ]
     else:
