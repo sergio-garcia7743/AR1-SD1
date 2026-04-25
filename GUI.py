@@ -1123,6 +1123,10 @@ def run_sequence(sequence, idx=0, on_done=None):
 
     item = sequence[idx]
 
+    if "test_servo" in item:
+        send_test_servo(item["test_servo"])
+        servo_test_slider.set(item["test_servo"])
+
     if "display" in item and item["display"]:
         display(item["display"])
 
@@ -1284,39 +1288,31 @@ def actionA():
         {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #home
         #Sequence end--------------------------------------------------------------------------------------------
 
-        #Pick up gripper (above)
-        #Start at home
-        {"move":[90, 90, 90, 90, 90], "pause_ms": 1000}, 
-        #Open gripper
-        TESTSERVO: 35; 
-        #Lower center of gravity
-        {"move": [90, 100, 110, 30, 90]}, 
-        #Pull back link 1 to avoid collision
-        {"move": [90, 70, 110, 30, 90]},
-        #Hover over target
-        {"move": [106, 100, 155, 50, 90]}, 
-        #Acquire target (CLOSE GRIPPER)
-        {"move": [106, 109, 155, 50, 90], "pause_ms": 2000}, 
-        TESTSERVO: 45; 
-        {"pause_ms": 2000}, 
-        #Pull up target to avoid collision with other targets
-        {"move": [106, 90, 120, 50, 90], "pause_ms: 2000}, 
-        #Move base left to drop-off
-        {"move": [74, 90, 120, 50, 90], "pause_ms": 2000}, 
-        #Hover over drop-off
-        {"move": [74, 100, 155, 50, 90], "pause_ms": 2000}, 
-        #Lower and wait for target to stabilize
-        {"move": [74, 109, 155, 50, 90], "pause_ms": 4000}, 
-        #Drop down target
-        TESTSERVO: 35;
-        {"pause_ms": 2000}, 
-        #Move arm up
-        {"move": [74, 95, 90, 90, 90], "pause_ms": 2000}, 
-        #Return home
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000}, 
-        #Return gripper home
-        {"relay": "MAGNET", "state": "OFF"}, #turn on magnet
-        #Return home
+        # Pick up gripper above
+    # Start at home
+    {"move": [90, 90, 90, 90, 90], "pause_ms": 1000},
+    # Open gripper
+    {"test_servo": 45, "pause_ms": 500},
+    # Acquire target
+    {"move": [106, 119, 155, 50, 90], "pause_ms": 2000},
+    # Close gripper
+    {"test_servo": 70, "pause_ms": 2000},
+    # Pull up target
+    {"move": [106, 90, 120, 50, 90], "pause_ms": 2000},
+    # Move base left to drop-off
+    {"move": [74, 90, 120, 50, 90], "pause_ms": 2000},
+    # Lower and wait for target to stabilize
+    {"move": [74, 119, 155, 50, 90], "pause_ms": 4000},
+    # Open gripper / drop target
+    {"test_servo": 45, "pause_ms": 2000},
+    # Move arm up
+    {"move": [74, 95, 90, 90, 90], "pause_ms": 2000},
+    # Return home
+    {"test_servo": 90, "pause_ms": 2000},
+    {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
+    
+    # Turn off magnet
+    {"relay": "MAGNET", "state": "OFF"},
     ])
 
 def actionB():
@@ -1325,8 +1321,11 @@ def actionB():
         return
 
     seq = [
-        {"display": "B", "move": [90, 90, 90, 90, 90], "pause_ms": 500},
-        {"display": "SMILE", "move": [90, 90, 90, 90, 90], "pause_ms": 0},
+    {"test_servo": 90, "pause_ms": 2000},
+    {"test_servo": 45, "pause_ms": 6000},
+    {"test_servo": 90, "pause_ms": 6000},
+    {"test_servo": 45, "pause_ms": 6000},
+     
     ]
     start_action(seq)
 
