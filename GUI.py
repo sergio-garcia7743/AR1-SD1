@@ -1379,13 +1379,14 @@ def select_pneumatic():
 
     start_action([
         {"move": [90, 90, 90, 90, 90], "pause_ms": 3000},
-        {"move": [20, 90, 90, 90, 90], "pause_ms": 3000},
-        {"move": [20, 70, 139, 149, 87], "pause_ms": 3000}, #
-        {"move": [20, 112, 139, 149, 87], "pause_ms": 3000}, #LATCH
+        {"move": [20, 90, 90, 90, 90], "pause_ms": 5000},
+        {"move": [20, 103, 138, 150, 87], "pause_ms": 10000}, #HOVER
+        {"move": [20, 103, 138, 150, 87], "pause_ms": 1000}, #HOVER CONFIRM
+        {"move": [20, 111, 138, 150, 87], "pause_ms": 5000}, #FORCE LATCH
         {"relay": "MAGNET", "state": "ON", "pause_ms": 2000},
-        {"move": [20, 112, 139, 149, 87], "pause_ms": 3000}, #LATCH
-        {"move": [20, 108, 130, 149, 87], "pause_ms": 2000}, #PULL BACK
-        {"move": [90, 90, 90, 90, 90]},
+        {"move": [20, 95, 138, 150, 87], "pause_ms": 5000}, #PULL L1
+        {"move": [90, 90, 90, 90, 90]}, #HOME
+
     ], on_done=lambda: mark_tool_attached("pneumatic"))
 
 def return_active_tool():
@@ -1394,32 +1395,24 @@ def return_active_tool():
 
     if active_tool == "gripper":
         seq = [
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #start home
-        {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #rotate base
-        {"move": [152, 56, 120, 120, 85], "pause_ms": 2000}, #STRAIGHTEN
-        {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
-        #{"move": [152, 56, 144, 152, 80], "pause_ms": 2000}, #PULL BACK GRIPPER
+        {"move": [90, 90, 90, 90, 90]},
+        {"move": [90, 87, 90, 90, 90], "pause_ms": 2000},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
         {"relay": "MAGNET", "state": "OFF"}, #turn on magnet
-        {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
-        {"move": [152, 56, 144, 152, 80], "pause_ms": 2000}, #STRAIGHTEN
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #home
         ]
     elif active_tool == "pump":
         seq = [
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 300},
-            {"move": [90, 90, 90, 90, 90], "pause_ms": 0},
+        {"move": [90, 90, 90, 90, 90]},
+        {"move": [90, 87, 90, 90, 90], "pause_ms": 2000},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
+        {"relay": "MAGNET", "state": "OFF"}, #turn on magnet
         ]
     elif active_tool == "pneumatic":
         seq = [
-     {"move": [90, 90, 90, 90, 90], "pause_ms": 3000},
-        {"move": [20, 90, 90, 90, 90], "pause_ms": 3000},
-        {"move": [20, 70, 139, 149, 87], "pause_ms": 3000}, #
-        {"move": [20, 112, 139, 149, 87], "pause_ms": 3000}, #LATCH
-        {"relay": "MAGNET", "state": "OFF", "pause_ms": 2000},
-        {"move": [20, 112, 139, 149, 87], "pause_ms": 3000}, #LATCH
-        {"move": [20, 95, 139, 149, 87], "pause_ms": 2000}, #PULL BACK
         {"move": [90, 90, 90, 90, 90]},
+        {"move": [90, 87, 90, 90, 90], "pause_ms": 2000},
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
+        {"relay": "MAGNET", "state": "OFF"}, #turn on magnet
         ]
     else:
         return
