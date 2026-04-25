@@ -1269,8 +1269,54 @@ def actionA():
         return
 
     start_action([
-        {"display": "A", "move": [90, 90, 90, 90, 90], "pause_ms": 500},
-        {"display": "SMILE", "move": [90, 90, 90, 90, 90], "pause_ms": 0},
+
+        #[106, 119, 155, 50, 90]
+        #[base, link1, link2, link3, wrist]
+        #TESTSERVO:90
+        #Gripper Tool Selection Sequence-------------------------------------------------------------------------
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #start home
+        {"move": [152, 90, 90, 90, 90], "pause_ms": 600}, #rotate base
+        {"move": [152, 56, 120, 120, 85], "pause_ms": 2000}, #STRAIGHTEN
+        {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
+        {"relay": "MAGNET", "state": "ON"}, #turn on magnet
+        {"move": [152, 102, 144, 152, 80], "pause_ms": 2000}, #get to latch position
+        {"move": [152, 56, 144, 152, 80], "pause_ms": 2000}, #STRAIGHTEN
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 600}, #home
+        #Sequence end--------------------------------------------------------------------------------------------
+
+        #Pick up gripper (above)
+        #Start at home
+        {"move":[90, 90, 90, 90, 90], "pause_ms": 1000}, 
+        #Open gripper
+        TESTSERVO: 35; 
+        #Lower center of gravity
+        {"move": [90, 100, 110, 30, 90]}, 
+        #Pull back link 1 to avoid collision
+        {"move": [90, 70, 110, 30, 90]},
+        #Hover over target
+        {"move": [106, 100, 155, 50, 90]}, 
+        #Acquire target (CLOSE GRIPPER)
+        {"move": [106, 109, 155, 50, 90], "pause_ms": 2000}, 
+        TESTSERVO: 45; 
+        {"pause_ms": 2000}, 
+        #Pull up target to avoid collision with other targets
+        {"move": [106, 90, 120, 50, 90], "pause_ms: 2000}, 
+        #Move base left to drop-off
+        {"move": [74, 90, 120, 50, 90], "pause_ms": 2000}, 
+        #Hover over drop-off
+        {"move": [74, 100, 155, 50, 90], "pause_ms": 2000}, 
+        #Lower and wait for target to stabilize
+        {"move": [74, 109, 155, 50, 90], "pause_ms": 4000}, 
+        #Drop down target
+        TESTSERVO: 35;
+        {"pause_ms": 2000}, 
+        #Move arm up
+        {"move": [74, 95, 90, 90, 90], "pause_ms": 2000}, 
+        #Return home
+        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000}, 
+        #Return gripper home
+        {"relay": "MAGNET", "state": "OFF"}, #turn on magnet
+        #Return home
     ])
 
 def actionB():
