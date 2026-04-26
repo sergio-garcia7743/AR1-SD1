@@ -1303,9 +1303,9 @@ def actionA():
     {"move": [106,90,100,50,90]}, 
     # Move base left to drop-off
     {"move": [74, 90, 100, 50, 90], "pause_ms": 2000},
-    {"move": [74, 114, 148, 50, 90], "pause_ms": 2000},
+    {"move": [74, 114, 148, 50, 90], "pause_ms": 3000},
     # Lower and wait for target to stabilize
-    {"move": [74, 119, 155, 50, 90], "pause_ms": 4000},
+    {"move": [74, 120, 155, 50, 90], "pause_ms": 4000},
     # Open gripper / drop target
     {"test_servo": 45, "pause_ms": 5000},
     # Move arm up
@@ -1314,8 +1314,19 @@ def actionA():
     {"test_servo": 90, "pause_ms": 5000},
     {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
     
-    # Turn off magnet
-    {"relay": "MAGNET", "state": "OFF"},
+    #--------------------------------------RETURN GRIPPER
+        {"move": [90, 90, 125, 149, 80], "pause_ms": 3000}, #LOWER L3 AND L2 & TURN WRIST
+        {"move": [152, 90, 125, 149, 80], "pause_ms": 3000}, #TURN BASE ONLY
+        {"move": [152, 70, 125, 149, 80], "pause_ms": 3000}, #PULL BACK L1 FOR CLEARENCE
+        {"move": [160, 70, 137, 149, 80], "pause_ms": 3000}, #PUSH L2 TOWARDS DOCK
+        {"move": [152, 90, 137, 149, 80], "pause_ms": 5000}, #HOVER L1 OVER DOCK
+        {"move": [152, 101, 137, 149, 80], "pause_ms": 5000}, #HOVER CONFIRM BACKLASH REMOVE    
+        {"move": [152, 101, 145, 149, 80], "pause_ms": 2000}, #FINAL DOCK, ONLY L2 MOVES    
+        {"relay": "MAGNET", "state": "OFF", "pause_ms": 3000}, #turn OFF magnet
+        {"move": [152, 95, 145, 149, 80], "pause_ms": 2000},  
+        {"move": [90, 90, 90, 90, 90]}, 
+
+    #----------------------------------------------RETURN GRIPPER END
     ])
 
 def actionB():
@@ -1393,12 +1404,19 @@ def return_active_tool():
     if is_animating or not tool_attached or active_tool is None:
         return
 
-    if active_tool == "gripper":
+    if active_tool == "gripper": #-----------------------RETURN GRIPPER SEQUENCE-------------------------------------
         seq = [
         {"move": [90, 90, 90, 90, 90]},
-        {"move": [90, 87, 90, 90, 90], "pause_ms": 2000},
-        {"move": [90, 90, 90, 90, 90], "pause_ms": 6000},
-        {"relay": "MAGNET", "state": "OFF"}, #turn on magnet
+        {"move": [90, 90, 125, 149, 80], "pause_ms": 3000}, #LOWER L3 AND L2 & TURN WRIST
+        {"move": [152, 90, 125, 149, 80], "pause_ms": 3000}, #TURN BASE ONLY
+        {"move": [152, 70, 125, 149, 80], "pause_ms": 3000}, #PULL BACK L1 FOR CLEARENCE
+        {"move": [160, 70, 137, 149, 80], "pause_ms": 3000}, #PUSH L2 TOWARDS DOCK
+        {"move": [152, 90, 137, 149, 80], "pause_ms": 5000}, #HOVER L1 OVER DOCK
+        {"move": [152, 101, 137, 149, 80], "pause_ms": 5000}, #HOVER CONFIRM BACKLASH REMOVE    
+        {"move": [152, 101, 145, 149, 80], "pause_ms": 2000}, #FINAL DOCK, ONLY L2 MOVES    
+        {"relay": "MAGNET", "state": "OFF", "pause_ms": 3000}, #turn OFF magnet
+        {"move": [152, 95, 145, 149, 80], "pause_ms": 2000},  
+        {"move": [90, 90, 90, 90, 90]}, 
         ]
     elif active_tool == "pump":
         seq = [
